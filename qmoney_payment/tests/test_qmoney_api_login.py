@@ -4,7 +4,7 @@ import pytest
 import requests
 import json
 
-class QMoneyAuth(requests.auth.AuthBase):
+class QMoneyBasicAuth(requests.auth.AuthBase):
   def __init__(self, token):
     self.token = token
   def __call__(self, r):
@@ -18,7 +18,7 @@ class TestQmoneyAPILogin:
       "username": qmoney_credentials[0],
       "password": qmoney_credentials[1],
     }
-    response = requests.post(url = f'{qmoney_url}/login', json = json_payload, auth=QMoneyAuth(qmoney_token))
+    response = requests.post(url = f'{qmoney_url}/login', json = json_payload, auth=QMoneyBasicAuth(qmoney_token))
     assert response.status_code == 200
 
     json_response = response.json()
@@ -36,14 +36,14 @@ class TestQmoneyAPILogin:
       "username": qmoney_credentials[0],
       "password": qmoney_credentials[1],
     }
-    response = requests.post(url = f'{qmoney_url}/login', json = json_payload, auth=QMoneyAuth('token'))
+    response = requests.post(url = f'{qmoney_url}/login', json = json_payload, auth=QMoneyBasicAuth('token'))
     assert response.status_code == 401
 
     json_response = response.json()
     assert json_response['error'] == 'unauthorized'
     assert json_response['error_description'] == 'Full authentication is required to access this resource'
 
-  def test_failing_at_logging_in_to_qmoney_when_missing_authorization_token(self, qmoney_url, qmoney_credentials):
+  def test_failing_at_logging_in_to_qmoney_when_missing_initial_authorization_token(self, qmoney_url, qmoney_credentials):
     json_payload = {
       "grantType": "password",
       "username": qmoney_credentials[0],
@@ -64,7 +64,7 @@ class TestQmoneyAPILogin:
       "password": qmoney_credentials[1],
     }
 
-    response = requests.post(url = f'{qmoney_url}/login', json = json_payload, auth=QMoneyAuth(qmoney_token))
+    response = requests.post(url = f'{qmoney_url}/login', json = json_payload, auth=QMoneyBasicAuth(qmoney_token))
     assert response.status_code == 200
     json_response = response.json()
     assert json_response['responseCode'] == '-5100006'
@@ -76,7 +76,7 @@ class TestQmoneyAPILogin:
       "password": qmoney_credentials[1],
     }
 
-    response = requests.post(url = f'{qmoney_url}/login', json = json_payload, auth=QMoneyAuth(qmoney_token))
+    response = requests.post(url = f'{qmoney_url}/login', json = json_payload, auth=QMoneyBasicAuth(qmoney_token))
     assert response.status_code == 200
     json_response = response.json()
     assert json_response['responseCode'] == -150008
@@ -89,7 +89,7 @@ class TestQmoneyAPILogin:
       "password": qmoney_credentials[1],
     }
 
-    response = requests.post(url = f'{qmoney_url}/login', json = json_payload, auth=QMoneyAuth(qmoney_token))
+    response = requests.post(url = f'{qmoney_url}/login', json = json_payload, auth=QMoneyBasicAuth(qmoney_token))
     assert response.status_code == 200
 
     json_response = response.json()
@@ -102,7 +102,7 @@ class TestQmoneyAPILogin:
       "password": qmoney_credentials[1],
     }
 
-    response = requests.post(url = f'{qmoney_url}/login', json = json_payload, auth=QMoneyAuth(qmoney_token))
+    response = requests.post(url = f'{qmoney_url}/login', json = json_payload, auth=QMoneyBasicAuth(qmoney_token))
     assert response.status_code == 200
 
     json_response = response.json()
@@ -115,7 +115,7 @@ class TestQmoneyAPILogin:
       "username": qmoney_credentials[0],
     }
 
-    response = requests.post(url = f'{qmoney_url}/login', json = json_payload, auth=QMoneyAuth(qmoney_token))
+    response = requests.post(url = f'{qmoney_url}/login', json = json_payload, auth=QMoneyBasicAuth(qmoney_token))
     assert response.status_code == 200
 
     json_response = response.json()
@@ -129,7 +129,7 @@ class TestQmoneyAPILogin:
       "password": "password",
     }
 
-    response = requests.post(url = f'{qmoney_url}/login', json = json_payload, auth=QMoneyAuth(qmoney_token))
+    response = requests.post(url = f'{qmoney_url}/login', json = json_payload, auth=QMoneyBasicAuth(qmoney_token))
     assert response.status_code == 200
 
     json_response = response.json()
