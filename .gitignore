@@ -9,3 +9,4 @@ dist
 **/*.mo
 locale/__init__.py
 .pytest_cache
+.test.env

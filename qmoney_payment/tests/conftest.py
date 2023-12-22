@@ -3,7 +3,7 @@ import pytest
 
 @pytest.fixture(scope="session")
 def qmoney_url():
-  return os.getenv('QMONEY_URL', 'https://uat-adpelite.qmoney.gm')
+  return os.getenv('QMONEY_URL')
 
 @pytest.fixture(scope="session")
 def qmoney_credentials():
