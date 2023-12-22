@@ -17,7 +17,7 @@ class QMoneyBearerAuth(requests.auth.AuthBase):
     r.headers["Authorization"] = f'Bearer {self.token}'
     return r
 
-class TestQmoneyAPILogin:
+class TestQmoneyAPIGetMoney:
   def login(self, url, credentials, token):
     json_payload = {
       "grantType": "password",
