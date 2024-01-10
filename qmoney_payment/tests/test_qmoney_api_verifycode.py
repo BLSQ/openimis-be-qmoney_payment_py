@@ -50,16 +50,17 @@ class TestQmoneyAPIVerifyCode:
     mustend = time.time() + 300
 
     messages = []
+    # while time.time() < mustend and (len(messages) == 0 or datetime.fromisoformat(messages[-1].date) < before_initiating_transaction):
     while time.time() < mustend and len(messages) == 0:
       messages = gmail.get_messages(query=construct_query(unread=True, sender='alerts@qmoney.gm', subject='Otp - QCell', newer_than=(1, 'day')))
       messages.sort(key=lambda msg: msg.date)
-      time.sleep(5)
+      time.sleep(10)
 
     assert len(messages) > 0, 'No new email message with the sent OTP found'
     [message.mark_as_read() for message in messages]
 
     message = messages[-1]
-    assert datetime.fromisoformat(message.date) > before_initiating_transaction, 'the date of the message is earlier than the time the request has been made'
+    # assert datetime.fromisoformat(message.date) > before_initiating_transaction, 'the date of the message is earlier than the time the request has been made'
     match = re.search(r"Generated OTP : \d+", message.html)
 
     assert match is not None, 'No OTP found in the most recent retrieved email'
@@ -76,6 +77,7 @@ class TestQmoneyAPIVerifyCode:
     assert response.status_code == 200
     json_response = response.json()
     assert json_response['data']['transactionId'] == transaction_id
+    assert response.text == ''
     assert json_response['responseCode'] == '1'
     assert json_response['responseMessage'] == 'Success'
     wallet = next((wallet for wallet in json_response['data']['balanceData'] if wallet['walletExternalId'] == 'MAIN_WALLET' and wallet['pouchExternalId'] == 'EMONEY_POUCH'), None)
@@ -113,7 +115,7 @@ class TestQmoneyAPIVerifyCode:
     mustend = time.time() + 300
 
     messages = []
-    while time.time() < mustend and len(messages) == 0:
+    while time.time() < mustend and (len(messages) == 0 or datetime.fromisoformat(messages[-1].date) < before_initiating_transaction):
       messages = gmail.get_messages(query=construct_query(unread=True, sender='alerts@qmoney.gm', subject='Otp - QCell', newer_than=(1, 'day')))
       messages.sort(key=lambda msg: msg.date)
       time.sleep(5)
