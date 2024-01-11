@@ -6,6 +6,12 @@ from simplegmail import Gmail
 from helpers import QMoney, gmail_mark_as_read_recent_emails_with_qmoney_otp
 
 
+def pytest_configure(config):
+  config.addinivalue_line(
+      "markers",
+      "amount_to_pay(amount): use internally to pass data to some tests")
+
+
 @pytest.fixture(scope='session')
 def qmoney_url():
   return os.getenv('QMONEY_URL')
