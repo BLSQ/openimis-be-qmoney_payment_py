@@ -120,19 +120,6 @@ def gmail_get_recent_emails_with_qmoney_otp(client):
         query=gmail_query_of_recent_emails_with_qmoney_otp())
 
 
-def gmail_wait_and_get_recent_emails_with_qmoney_otp(client,
-                                                     frequency=10,
-                                                     timeout=300):
-    mustend = time.time() + 300
-    messages = []
-    while time.time() < mustend and len(messages) == 0:
-        messages = gmail_get_recent_emails_with_qmoney_otp(client)
-        time.sleep(10)
-
-    messages.sort(key=lambda msg: msg.date)
-    return messages
-
-
 def extract_otp_from_email_messages(messages, oldest_possible_datetime):
 
     assert len(messages) > 0, 'No new email message with the sent OTP found'
@@ -150,6 +137,19 @@ def extract_otp_from_email_messages(messages, oldest_possible_datetime):
 
 def gmail_mark_messages_as_read(messages):
     [message.mark_as_read() for message in messages]
+
+
+def gmail_wait_and_get_recent_emails_with_qmoney_otp(client,
+                                                     frequency=10,
+                                                     timeout=300):
+    mustend = time.time() + 300
+    messages = []
+    while time.time() < mustend and len(messages) == 0:
+        messages = gmail_get_recent_emails_with_qmoney_otp(client)
+        time.sleep(10)
+
+    messages.sort(key=lambda msg: msg.date)
+    return messages
 
 
 def gmail_mark_as_read_recent_emails_with_qmoney_otp(client):

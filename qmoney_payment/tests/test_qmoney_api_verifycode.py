@@ -152,7 +152,6 @@ class TestQmoneyAPIVerifyCode:
         _, otp = transaction_id_and_otp
         response = QMoney.proceed_transaction(qmoney_url, qmoney_access_token,
                                               None, otp)
-
         assert response.status_code == 200
         json_response = response.json()
         assert json_response[
