@@ -1,12 +1,9 @@
 import pytest
 import requests
 import json
-from datetime import datetime, timezone, timedelta
 import pprint
-import re
-import time
 
-from helpers import QMoneyBearerAuth, QMoney, set_into, del_from, gmail_get_recent_emails_with_qmoney_otp
+from helpers import QMoneyBearerAuth, QMoney, set_into, del_from, gmail_wait_and_get_recent_emails_with_qmoney_otp, extract_otp_from_email_messages, gmail_mark_messages_as_read, current_datetime
 
 
 @pytest.mark.with_gmail
@@ -17,10 +14,7 @@ class TestQmoneyAPIVerifyCode:
                                qmoney_payer, qmoney_payee,
                                qmoney_payee_pin_code, gmail_client):
         # can be proceeded one and only once
-        before_initiating_transaction = datetime.now(
-            tz=timezone(timedelta(hours=1)))
-        before_initiating_transaction = before_initiating_transaction.replace(
-            second=0, microsecond=0)
+        before_initiating_transaction = current_datetime()
 
         marker = request.node.get_closest_marker("amount_to_pay")
         amount = 1
@@ -36,33 +30,20 @@ class TestQmoneyAPIVerifyCode:
         assert json_response['responseMessage'] == 'OTP Send Successfully'
         assert json_response['data']['transactionId'] is not None
 
-        mustend = time.time() + 300
+        messages = gmail_wait_and_get_recent_emails_with_qmoney_otp(
+            gmail_client, 10, 300)
 
-        messages = []
-        while time.time() < mustend and len(messages) == 0:
-            messages = gmail_get_recent_emails_with_qmoney_otp(gmail_client)
-            messages.sort(key=lambda msg: msg.date)
-            time.sleep(10)
+        otp = extract_otp_from_email_messages(messages,
+                                              before_initiating_transaction)
 
-        assert len(
-            messages) > 0, 'No new email message with the sent OTP found'
-        [message.mark_as_read() for message in messages]
+        gmail_mark_messages_as_read(messages)
 
-        message = messages[-1]
-        assert datetime.fromisoformat(
-            message.date
-        ) >= before_initiating_transaction, f'the date of the message {datetime.fromisoformat(message.date)} is earlier than the time the request has been made {before_initiating_transaction}'
-        match = re.search(r"Generated OTP : \d+", message.html)
-
-        assert match is not None, 'No OTP found in the most recent retrieved email'
-
-        otp = match.group(0).replace('Generated OTP : ', '')
         transaction_id = json_response['data']['transactionId']
 
         return (transaction_id, otp)
 
-    def test_proceeding_transaction(self, qmoney_access_token, qmoney_url,
-                                    transaction_id_and_otp):
+    def test_proceeding_normal_transaction(self, qmoney_access_token,
+                                           qmoney_url, transaction_id_and_otp):
         transaction_id, otp = transaction_id_and_otp
 
         response = QMoney.proceed_transaction(qmoney_url, qmoney_access_token,
@@ -71,7 +52,7 @@ class TestQmoneyAPIVerifyCode:
         json_response = response.json()
         assert json_response['data']['transactionId'] == transaction_id
         assert json_response[
-            'responseCode'] == '1', f'We should have `1` but we got {json_response["responseCode"]}. Here the whole response {response.text}'
+            'responseCode'] == '1', f'response body is {response.text}'
         assert json_response['responseMessage'] == 'Success'
         wallet = next((wallet
                        for wallet in json_response['data']['balanceData']
@@ -122,10 +103,11 @@ class TestQmoneyAPIVerifyCode:
         json_response = response.json()
         assert json_response['data']['transactionId'] == transaction_id
         assert json_response[
-            'responseCode'] == '-120008', f'We should have `1` but we got {json_response["responseCode"]}. Here the whole response {response.text}'
+            'responseCode'] == '-120008', f'response body is {response.text}'
         assert json_response[
             'responseMessage'] == f'Balance not sufficient for PouchExId : EMONEY_POUCH , userIdentifier : {qmoney_payer}', f'response body is {response.text}'
         assert json_response['data']['balanceData'] == [{}]
+        # it is the wallet of the payee!!
 
     def test_proceeding_transaction_twice(self, qmoney_access_token,
                                           qmoney_url, transaction_id_and_otp):
@@ -136,7 +118,8 @@ class TestQmoneyAPIVerifyCode:
         assert response.status_code == 200
         json_response = response.json()
         assert json_response['data']['transactionId'] == transaction_id
-        assert json_response['responseCode'] == '1'
+        assert json_response[
+            'responseCode'] == '1', f'response body is {response.text}'
         assert json_response['responseMessage'] == 'Success'
 
         response = QMoney.proceed_transaction(qmoney_url, qmoney_access_token,
@@ -158,7 +141,8 @@ class TestQmoneyAPIVerifyCode:
                                  auth=QMoneyBearerAuth(qmoney_access_token))
         assert response.status_code == 200
         json_response = response.json()
-        assert json_response['responseCode'] == -20002
+        assert json_response[
+            'responseCode'] == -20002, f'response body is {response.text}'
         assert json_response[
             'responseMessage'] == 'Mandatory parmater missing : transactionId'
 

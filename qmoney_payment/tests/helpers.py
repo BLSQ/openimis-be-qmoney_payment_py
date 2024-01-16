@@ -1,26 +1,11 @@
+from datetime import datetime, timezone, timedelta
 import requests
+import re
+import time
 
 from simplegmail.query import construct_query
 
-
-class QMoneyBasicAuth(requests.auth.AuthBase):
-
-    def __init__(self, token):
-        self.token = token
-
-    def __call__(self, r):
-        r.headers["Authorization"] = f'Basic {self.token}'
-        return r
-
-
-class QMoneyBearerAuth(requests.auth.AuthBase):
-
-    def __init__(self, token):
-        self.token = token
-
-    def __call__(self, r):
-        r.headers["Authorization"] = f'Bearer {self.token}'
-        return r
+from qmoney_payment.qmoney import QMoneyBasicAuth, QMoneyBearerAuth
 
 
 class QMoney:
@@ -135,6 +120,43 @@ def gmail_get_recent_emails_with_qmoney_otp(client):
         query=gmail_query_of_recent_emails_with_qmoney_otp())
 
 
+def gmail_wait_and_get_recent_emails_with_qmoney_otp(client,
+                                                     frequency=10,
+                                                     timeout=300):
+    mustend = time.time() + 300
+    messages = []
+    while time.time() < mustend and len(messages) == 0:
+        messages = gmail_get_recent_emails_with_qmoney_otp(client)
+        time.sleep(10)
+
+    messages.sort(key=lambda msg: msg.date)
+    return messages
+
+
+def extract_otp_from_email_messages(messages, oldest_possible_datetime):
+
+    assert len(messages) > 0, 'No new email message with the sent OTP found'
+
+    message = messages[-1]
+    message_datetime = datetime.fromisoformat(message.date)
+    assert message_datetime >= oldest_possible_datetime, f'the date of the message {message_datetime} is earlier than the time the request has been made {oldest_possible_datetime}'
+    match = re.search(r"Generated OTP : \d+", message.html)
+
+    assert match is not None, 'No OTP found in the most recent retrieved email'
+
+    otp = match.group(0).replace('Generated OTP : ', '')
+    return otp
+
+
+def gmail_mark_messages_as_read(messages):
+    [message.mark_as_read() for message in messages]
+
+
 def gmail_mark_as_read_recent_emails_with_qmoney_otp(client):
     messages = gmail_get_recent_emails_with_qmoney_otp(client)
-    [message.mark_as_read() for message in messages]
+    gmail_mark_messages_as_read(messages)
+
+
+def current_datetime():
+    current = datetime.now(tz=timezone(timedelta(hours=1)))
+    return current.replace(second=0, microsecond=0)
