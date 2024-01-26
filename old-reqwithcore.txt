@@ -1,0 +1,7 @@
+pandas
+apscheduler==3.10.1
+git+https://github.com/openimis/django-apscheduler.git#egg=django-apscheduler
+
+in -dev
+django-graphql-jwt==0.3.4
+graphene-django-optimizer==0.8.0

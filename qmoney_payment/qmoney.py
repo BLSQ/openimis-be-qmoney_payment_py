@@ -31,7 +31,8 @@ class PaymentTransaction:
     amount_to_pay = 0
     session = None
     transaction_id = None
-    State = Enum('State', ['INITIATED', 'WAIT_FOR_CONFIRMATION', 'PROCEEDED'])
+    State = Enum('State',
+                 ['INITIATED', 'WAITING_FOR_CONFIRMATION', 'PROCEEDED'])
     current_state = State.INITIATED
 
     def __init__(self, with_session, to_merchant, from_wallet_id, amount):
@@ -59,16 +60,21 @@ class PaymentTransaction:
                                                 self.to_merchant.pin_code)
 
         if transaction_id is not None:
-            self.current_state = PaymentTransaction.State.WAIT_FOR_CONFIRMATION
+            self.current_state = PaymentTransaction.State.WAITING_FOR_CONFIRMATION
             self.transaction_id = transaction_id
 
         return transaction_id != None
 
     def proceed(self, otp):
-        if self.transaction_id is None or otp is None:
-            return False
+        if self.transaction_id is None:
+            return (
+                False,
+                'There isn\'t a transaction ID associated to this payment. Please request one before.'
+            )
+        if otp is None:
+            return (False, 'The provided OTP is empty.')
         result = self.session.verify_code(self.transaction_id, otp)
-        if result:
+        if result[0]:
             self.current_state = PaymentTransaction.State.PROCEEDED
         return result
 
@@ -167,9 +173,9 @@ class Session:
 
         if response.status_code != 200 or response.json(
         )['responseCode'] != '1':
-            return False
+            return (False, response.text)
 
-        return True
+        return (True, response.text)
 
     def merchant(self, merchant_wallet_id, pin_code):
         return Merchant(merchant_wallet_id, pin_code)
