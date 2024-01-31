@@ -12,3 +12,4 @@ locale/__init__.py
 .test.env
 client_secret.json
 gmail_token.json
+access_token.txt

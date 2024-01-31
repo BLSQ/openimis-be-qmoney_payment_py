@@ -60,3 +60,38 @@ Without the full OpenIMIS test harness
 ```bash
 pytest
 ```
+
+As explained in the previous section, some tests rely on an existing GMail account. You run only those tests with:
+
+```bash
+pytest -m "with_gmail"
+```
+
+or everything except those with:
+```bash
+pytest -m "not with_gmail"
+```
+
+## Limitations
+
+The QMoney has some inherent known limitations:
+
+* When requesting a payment (and by doing so initiating the transaction), QMoney
+  will respond that it succeeds as soon the payload is a well formated JSON and
+  you have provided a valid access token. It means at that step we won't be able
+  to know if the payer wallet is valid, if there is a chance that it contains
+  enough money, if the pin code or the merchant wallet are the right ones, and
+  so on.
+* The message sent with the OTP to the payer doesn't contain any additional
+  information. It seems there isn't any way to give them context.
+* It seems there isn't any throttle or limit of transactions that you can
+  initiate.
+
+Pending questions:
+
+* limit on the number of attemps to verify a payment (after 100 failed attempts,
+  it's still possible to confirm the payment with a correct OTP)
+* limit on OTP validity
+* expiration of access token (it seems there isn't as we receive `-1`)
+* what's in the access token if it's a JWT token
+* details about `getTransactionStatus`
