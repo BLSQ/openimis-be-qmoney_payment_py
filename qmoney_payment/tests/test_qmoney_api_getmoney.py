@@ -2,11 +2,26 @@ import json
 import pprint
 import pytest
 import requests
+import time
 
-from helpers import QMoneyBearerAuth, QMoney, set_into, del_from
+from simplegmail import Gmail
+
+from helpers import QMoneyBearerAuth, QMoney, set_into, del_from, gmail_mark_as_read_recent_emails_with_qmoney_otp
 
 
 class TestQmoneyAPIGetMoney:
+
+    @pytest.fixture(scope='class', autouse=True)
+    def cleanup_emails_after_tests(self, pytestconfig):
+        from _pytest.mark.expression import Expression
+        markers = Expression.compile(pytestconfig.option.markexpr)
+        if markers.evaluate(lambda marker: marker == "not with_gmail"):
+            yield
+        else:
+            yield
+            client = Gmail()
+            time.sleep(30)
+            gmail_mark_as_read_recent_emails_with_qmoney_otp(client)
 
     def test_initiating_transaction(self, qmoney_access_token, qmoney_url,
                                     qmoney_payer, qmoney_payee,
