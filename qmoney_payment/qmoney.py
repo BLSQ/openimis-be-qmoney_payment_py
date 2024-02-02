@@ -1,5 +1,8 @@
 from enum import Enum
+import logging
 import requests
+
+logger = logging.getLogger(__name__)
 
 
 class QMoneyBasicAuth(requests.auth.AuthBase):
@@ -89,14 +92,14 @@ class Session:
     url = None
     username = None
     password = None
-    token = None
+    login_token = None
     access_token = None
 
-    def __init__(self, url, username, password, token):
+    def __init__(self, url, username, password, login_token):
         self.url = url
         self.username = username
         self.password = password
-        self.token = token
+        self.login_token = login_token
         self.login()
 
     def login(self):
@@ -107,7 +110,7 @@ class Session:
         }
         response = requests.post(url=f'{self.url}/login',
                                  json=json_payload,
-                                 auth=QMoneyBasicAuth(self.token))
+                                 auth=QMoneyBasicAuth(self.login_token))
 
         self.access_token = response.json()['data']['access_token']
 
@@ -140,10 +143,14 @@ class Session:
                 'transactionPin': merchant_pin_code
             }
         }
+        logger.debug('POST /getMoney with payload:\n%s', payload)
+
         response = requests.post(url=f'{self.url}/getMoney',
                                  json=payload,
                                  auth=QMoneyBearerAuth(self.access_token))
-        print(response.text)
+
+        logger.debug('POST /getMoney response:\n%s', response.text)
+
         if response.status_code != 200 or response.json(
         )['responseCode'] != '1':
             return None
@@ -152,9 +159,11 @@ class Session:
     def verify_code(self, transaction_id, otp):
         payload = {'transactionId': transaction_id, 'otp': otp}
 
+        logger.debug('POST /verifyCode with payload:\n%s', payload)
         response = requests.post(url=f'{self.url}/verifyCode',
                                  json=payload,
                                  auth=QMoneyBearerAuth(self.access_token))
+        logger.debug('POST /verifyCode response:\n%s', response.text)
 
         if response.status_code != 200 or response.json(
         )['responseCode'] != '1':
@@ -169,5 +178,5 @@ class Session:
 class QMoney:
 
     @classmethod
-    def session(cls, url, username, password, token):
-        return Session(url, username, password, token)
+    def session(cls, url, username, password, login_token):
+        return Session(url, username, password, login_token)

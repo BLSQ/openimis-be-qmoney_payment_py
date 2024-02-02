@@ -29,7 +29,8 @@ class TestPaymentWorkflow:
 
         gmail_mark_messages_as_read(messages)
 
-        assert payment_transaction.proceed(otp)
+        result = payment_transaction.proceed(otp)
+        assert result is True
         assert payment_transaction.state(
         ) == PaymentTransaction.State.PROCEEDED
         assert payment_transaction.amount() == amount
