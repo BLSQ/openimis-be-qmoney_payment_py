@@ -106,9 +106,13 @@ class Session:
         self.username = username
         self.password = password
         self.login_token = login_token
-        self.login()
+
+    def is_logged_in(self):
+        return self.access_token is not None
 
     def login(self):
+        if self.is_logged_in():
+            return
         json_payload = {
             'grantType': 'password',
             'username': self.username,
@@ -130,6 +134,7 @@ class Session:
 
     def get_money(self, payer_wallet_id, merchant_wallet_id, amount,
                   merchant_pin_code):
+        self.login()
         payload = {
             'data': {
                 'fromUser': {
@@ -163,6 +168,7 @@ class Session:
         return response.json()['data']['transactionId']
 
     def verify_code(self, transaction_id, otp):
+        self.login()
         payload = {'transactionId': transaction_id, 'otp': otp}
 
         logger.debug('POST /verifyCode with payload:\n%s', payload)
