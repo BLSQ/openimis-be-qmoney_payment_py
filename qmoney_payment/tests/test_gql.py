@@ -26,7 +26,7 @@ class TestQMoneyPaymentGraphQL():
 
     @pytest.fixture(scope='function')
     def one_policy(self):
-        policy = Policy.objects.create()
+        policy = Policy.objects.create(status=Policy.STATUS_IDLE)
         yield policy
         policy.delete()
 
@@ -322,6 +322,37 @@ class TestQMoneyPaymentGraphQL():
                 ['externalTransactionId']
             })
         assert actual == expected, f'shoud have been {expected}, but we got {actual}'
+
+    def test_failing_at_requesting_qmoney_payment_for_an_existing_given_non_idle_policy(
+            self, gql_client, one_policy, qmoney_payer):
+        one_policy.status = Policy.STATUS_ACTIVE
+        one_policy.save()
+        amount = 10
+        query = '''
+        mutation {
+          requestQmoneyPayment(policyUuid: "%s", amount: %i, payerWallet: "%s") {
+            qmoneyPayment {
+              uuid
+              status
+              amount
+              payerWallet
+              policyUuid
+              contributionUuid
+              externalTransactionId
+            }
+            ok
+          }
+        }
+        ''' % (
+            one_policy.uuid,
+            amount,
+            qmoney_payer,
+        )
+
+        actual = gql_client.execute(query)
+        assert actual['data']['requestQmoneyPayment'] is None
+        assert actual['errors'][0][
+            'message'] == f'Something went wrong. The payment could not be requested. The transaction is I. Reason: The Policy {one_policy.uuid} should be Idle but it is not.'
 
     def test_failing_at_requesting_qmoney_payment_for_an_absent_given_policy(
             self, gql_client, qmoney_payer):

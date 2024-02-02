@@ -105,7 +105,7 @@ class RequestQMoneyPayment(graphene.Mutation):
         response = one_qmoney_payment.request()
         if not response['ok']:
             return GraphQLError(
-                f'Something went wrong. The payment could not be requested. The transaction is {response["status"]}.'
+                f'Something went wrong. The payment could not be requested. The transaction is {response["status"]}. Reason: {response["message"]}'
             )
         ok = True
         return RequestQMoneyPayment(qmoney_payment=one_qmoney_payment, ok=ok)

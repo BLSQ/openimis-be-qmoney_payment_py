@@ -6,6 +6,7 @@ from django.db import models
 
 from qmoney_payment.apps import QMoneyPaymentConfig
 from qmoney_payment.qmoney import PaymentTransaction
+from qmoney_payment.models.policy import Policy
 
 
 class QMoneyPayment(models.Model):
@@ -48,6 +49,15 @@ class QMoneyPayment(models.Model):
                 'ok': False,
                 'status': self.status,
                 'message': 'The payment has already been proceeded.'
+            }
+        if self.policy.status is not Policy.STATUS_IDLE:
+            return {
+                'ok':
+                False,
+                'status':
+                self.status,
+                'message':
+                f'The Policy {self.policy.uuid} should be Idle but it is not.'
             }
 
         # TODO manage the case the object has already been created, reuse ?
