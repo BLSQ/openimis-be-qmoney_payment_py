@@ -61,7 +61,7 @@ class TestQMoneyPaymentGraphQL():
                     'externalTransactionId': item.get('transaction_id', None),
                     'payerWallet': item['payer_wallet'],
                     'policyUuid': item.get("policy_uuid"),
-                    'status': item.get('status', 'I'),
+                    'status': item.get('status', 'INITIATED'),
                     'uuid': item['uuid']
                 }
             }
@@ -78,7 +78,7 @@ class TestQMoneyPaymentGraphQL():
                             'externalTransactionId': None,
                             'payerWallet': item['payer_wallet'],
                             'policyUuid': item.get('policy_uuid'),
-                            'status': item.get('status', 'I'),
+                            'status': item.get('status', 'INITIATED'),
                             'uuid': item['uuid']
                         }
                     } for item in items]
@@ -253,7 +253,7 @@ class TestQMoneyPaymentGraphQL():
         })
 
         actual = gql_client.execute(query)
-        assert expected == actual, f'shoud have been {expected}, but we got {actual}'
+        assert expected == actual, f'should have been {expected}, but we got {actual}'
 
         query = '''
         query {
@@ -270,10 +270,9 @@ class TestQMoneyPaymentGraphQL():
         ''' % (uuid.uuid4(), )
 
         expected = self.generate_expected()
-        # Maybe it should be an not found error
 
         actual = gql_client.execute(query)
-        assert expected == actual, f'shoud have been {expected}, but we got {actual}'
+        assert expected == actual, f'should have been {expected}, but we got {actual}'
 
     def test_requesting_qmoney_payment_for_an_existing_given_policy(
             self, gql_client, one_policy, qmoney_payer):
@@ -301,7 +300,7 @@ class TestQMoneyPaymentGraphQL():
 
         actual = gql_client.execute(query)
         assert actual['data']['requestQmoneyPayment'][
-            'ok'], 'should have returned ok, but got {actual}'
+            'ok'], f'should have returned ok, but got {actual}'
         assert actual['data']['requestQmoneyPayment']['qmoneyPayment'][
             'uuid'] is not None
         expected = self.generate_expected_mutation_ok_response(
@@ -312,7 +311,7 @@ class TestQMoneyPaymentGraphQL():
                 'policy_uuid':
                 f'{one_policy.uuid}',
                 'status':
-                'W',
+                'WAITING_FOR_CONFIRMATION',
                 'amount':
                 amount,
                 'payer_wallet':
@@ -321,7 +320,7 @@ class TestQMoneyPaymentGraphQL():
                 actual['data']['requestQmoneyPayment']['qmoneyPayment']
                 ['externalTransactionId']
             })
-        assert actual == expected, f'shoud have been {expected}, but we got {actual}'
+        assert actual == expected, f'should have been {expected}, but we got {actual}'
 
     def test_failing_at_requesting_qmoney_payment_for_an_existing_given_non_idle_policy(
             self, gql_client, one_policy, qmoney_payer):
@@ -352,7 +351,7 @@ class TestQMoneyPaymentGraphQL():
         actual = gql_client.execute(query)
         assert actual['data']['requestQmoneyPayment'] is None
         assert actual['errors'][0][
-            'message'] == f'Something went wrong. The payment could not be requested. The transaction is I. Reason: The Policy {one_policy.uuid} should be Idle but it is not.'
+            'message'] == f'Something went wrong. The payment could not be requested. The transaction is INITIATED. Reason: The Policy {one_policy.uuid} should be Idle but it is not.'
 
     def test_failing_at_requesting_qmoney_payment_for_an_absent_given_policy(
             self, gql_client, qmoney_payer):
@@ -443,12 +442,12 @@ class TestQMoneyPaymentGraphQL():
             'requestQmoneyPayment', {
                 'uuid': uuid,
                 'policy_uuid': f'{one_policy.uuid}',
-                'status': 'W',
+                'status': 'WAITING_FOR_CONFIRMATION',
                 'amount': amount,
                 'payer_wallet': qmoney_payer,
                 'transaction_id': transaction_id,
             })
-        assert actual == expected, f'shoud have been {expected}, but we got {actual}'
+        assert actual == expected, f'should have been {expected}, but we got {actual}'
 
         messages = gmail_wait_and_get_recent_emails_with_qmoney_otp(
             gmail_client, 10, 300)
@@ -483,9 +482,9 @@ class TestQMoneyPaymentGraphQL():
             'proceedQmoneyPayment', {
                 'uuid': uuid,
                 'policy_uuid': f'{one_policy.uuid}',
-                'status': 'P',
+                'status': 'PROCEEDED',
                 'amount': amount,
                 'payer_wallet': qmoney_payer,
                 'transaction_id': transaction_id,
             })
-        assert actual == expected, f'shoud have been {expected}, but we got {actual}'
+        assert actual == expected, f'should have been {expected}, but we got {actual}'

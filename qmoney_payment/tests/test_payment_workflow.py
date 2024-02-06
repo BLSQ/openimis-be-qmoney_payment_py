@@ -7,7 +7,7 @@ from helpers import gmail_wait_and_get_recent_emails_with_qmoney_otp, current_da
 @pytest.mark.with_gmail
 class TestPaymentWorkflow:
 
-    def test_succeeding_whole_payment_worlflow_with_right_inputs(
+    def test_succeeding_whole_payment_workflow_with_right_inputs(
             self, qmoney_url, qmoney_credentials, qmoney_token, qmoney_payer,
             qmoney_payee, qmoney_payee_pin_code, gmail_client):
         amount = 1

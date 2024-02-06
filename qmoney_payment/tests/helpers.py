@@ -142,11 +142,11 @@ def gmail_mark_messages_as_read(messages):
 def gmail_wait_and_get_recent_emails_with_qmoney_otp(client,
                                                      frequency=10,
                                                      timeout=300):
-    mustend = time.time() + 300
+    mustend = time.time() + timeout
     messages = []
     while time.time() < mustend and len(messages) == 0:
         messages = gmail_get_recent_emails_with_qmoney_otp(client)
-        time.sleep(10)
+        time.sleep(frequency)
 
     messages.sort(key=lambda msg: msg.date)
     return messages

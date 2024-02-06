@@ -31,15 +31,48 @@ class PaymentTransaction:
     amount_to_pay = 0
     session = None
     transaction_id = None
-    State = Enum('State',
-                 ['INITIATED', 'WAITING_FOR_CONFIRMATION', 'PROCEEDED'])
-    current_state = State.INITIATED
+    State = Enum('State', [
+        'INITIATED', 'WAITING_FOR_CONFIRMATION', 'PROCEEDED', 'UNKNOWN',
+        'FAILED'
+    ])
+    current_state = State.UNKNOWN
 
-    def __init__(self, with_session, to_merchant, from_wallet_id, amount):
+    def __init__(self,
+                 with_session,
+                 to_merchant,
+                 from_wallet_id,
+                 amount,
+                 state_initial='I',
+                 assigned_transaction_id=None):
         self.to_merchant = to_merchant
         self.from_wallet_id = from_wallet_id
         self.amount_to_pay = amount
         self.session = with_session
+        self.transaction_id = assigned_transaction_id
+        self.current_state = self.__convert_state_initial_to_state_enum(
+            state_initial)
+
+    def __convert_state_initial_to_state_enum(self, state_initial):
+        return next(
+            iter([
+                elem for elem in PaymentTransaction.State
+                if elem.name[0] == state_initial
+            ]), PaymentTransaction.State.UNKNOWN)
+
+    def is_initiated(self):
+        return self.current_state == PaymentTransaction.State.INITIATED
+
+    def is_waiting_for_confirmation(self):
+        return self.current_state == PaymentTransaction.State.WAITING_FOR_CONFIRMATION
+
+    def is_proceeded(self):
+        return self.current_state == PaymentTransaction.State.PROCEEDED
+
+    def is_failed(self):
+        return self.current_state == PaymentTransaction.State.FAILED
+
+    def is_in_unknown_state(self):
+        return self.current_state == PaymentTransaction.State.UNKNOWN
 
     def state(self):
         return self.current_state
@@ -62,8 +95,10 @@ class PaymentTransaction:
         if transaction_id is not None:
             self.current_state = PaymentTransaction.State.WAITING_FOR_CONFIRMATION
             self.transaction_id = transaction_id
+        else:
+            self.current_state = PaymentTransaction.State.FAILED
 
-        return transaction_id != None
+        return transaction_id is not None
 
     def proceed(self, otp):
         if self.transaction_id is None:
@@ -72,10 +107,12 @@ class PaymentTransaction:
                 'There isn\'t a transaction ID associated to this payment. Please request one before.'
             )
         if otp is None:
-            return (False, 'The provided OTP is empty.')
+            return False, 'The provided OTP is empty.'
         result = self.session.verify_code(self.transaction_id, otp)
         if result[0]:
             self.current_state = PaymentTransaction.State.PROCEEDED
+        else:
+            self.current_state = PaymentTransaction.State.FAILED
         return result
 
 

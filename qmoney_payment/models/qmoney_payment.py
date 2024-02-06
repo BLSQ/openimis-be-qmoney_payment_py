@@ -11,10 +11,13 @@ from qmoney_payment.models.policy import Policy
 
 class QMoneyPayment(models.Model):
 
-    class Status(models.TextChoices):
-        INITIATED = 'I', 'Initiated'
-        WAITING_FOR_CONFIRMATION = 'W', 'Waiting For Confirmation'
-        PROCEEDED = 'P', 'Proceeded'
+    Status = models.TextChoices('Status',
+                                [(elem.name[0], elem.name)
+                                 for elem in PaymentTransaction.State])
+    # (models.TextChoices):
+    #     INITIATED = 'I', 'Initiated'
+    #     WAITING_FOR_CONFIRMATION = 'W', 'Waiting For Confirmation'
+    #     PROCEEDED = 'P', 'Proceeded'
 
     uuid = models.UUIDField(primary_key=True,
                             default=uuid.uuid4,
@@ -29,7 +32,7 @@ class QMoneyPayment(models.Model):
                                                null=True,
                                                blank=True)
     status = models.CharField(choices=Status.choices,
-                              default=Status.INITIATED,
+                              default=Status.I,
                               max_length=1)
     transaction = None
 
@@ -38,11 +41,11 @@ class QMoneyPayment(models.Model):
     payer_wallet = models.CharField(max_length=200)
 
     def request(self):
-        if self.status == QMoneyPayment.Status.WAITING_FOR_CONFIRMATION:
+        if self.payment_transaction().is_waiting_for_confirmation():
             # Should probably not happen as the object is always created by the
             # mutation before requesting
             return {'ok': True, 'status': self.status}
-        if self.status == QMoneyPayment.Status.PROCEEDED:
+        if self.payment_transaction().is_proceeded():
             # Should probably not happen as the object is always created by the
             # mutation before requesting
             return {
@@ -63,13 +66,14 @@ class QMoneyPayment(models.Model):
         # TODO manage the case the object has already been created, reuse ?
         self.transaction = self.merchant().request_payment(
             self.session(), self.payer_wallet, self.amount)
-        if self.transaction.current_state == PaymentTransaction.State.WAITING_FOR_CONFIRMATION:
-            self.status = QMoneyPayment.Status.WAITING_FOR_CONFIRMATION
+        if self.payment_transaction().is_waiting_for_confirmation():
+            self.status = QMoneyPayment.Status.W
             self.external_transaction_id = self.transaction.transaction_id
             self.save()
         else:
             # TODO to manage, buuuuut except network error, it should be always ok due to the API :/
             # maybe with the get transaction state of their API ?
+            self.status = QMoneyPayment.Status.F
             return {
                 'ok': False,
                 'status': self.status,
@@ -79,23 +83,23 @@ class QMoneyPayment(models.Model):
         return {'ok': True, 'status': self.status}
 
     def proceed(self, otp):
-        if self.status == QMoneyPayment.Status.PROCEEDED:
+        if self.payment_transaction().is_proceeded():
             # maybe "raise an info" to say it's already done
             return {'ok': True, 'status': self.status}
-        if self.status == QMoneyPayment.Status.INITIATED:
+        if self.payment_transaction().is_initiated():
             return {
                 'ok':
                 False,
                 'status':
                 self.status,
                 'message':
-                'The payment has been requested. Please request it first before proceeding it.'
+                'The payment has not been requested. Please request it first before proceeding it.'
             }
 
         # TODO manage the case the object has already been created, reuse ?
         response = self.payment_transaction().proceed(otp)
         if response[0]:
-            self.status = QMoneyPayment.Status.PROCEEDED
+            self.status = QMoneyPayment.Status.P
             self.save()
         else:
             return {
@@ -121,9 +125,11 @@ class QMoneyPayment(models.Model):
         if self.transaction is not None:
             return self.transaction
         self.transaction = PaymentTransaction(self.session(), self.merchant(),
-                                              self.payer_wallet, self.amount)
-        self.transaction.transaction_id = self.external_transaction_id
+                                              self.payer_wallet, self.amount,
+                                              self.status,
+                                              self.external_transaction_id)
         return self.transaction
 
     class Meta:
         managed = True
+        db_table = 'tblQmoneyPayment'
