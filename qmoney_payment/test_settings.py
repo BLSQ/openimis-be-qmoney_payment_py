@@ -1,4 +1,7 @@
 DATABASES = {}
-DATABASES['default'] = {'ENGINE': 'django.db.backends.sqlite3'}
+DATABASES['default'] = {
+    'ENGINE': 'django.db.backends.sqlite3',
+    'NAME': 'db.sqlite3'
+}
 USE_TZ = False
 INSTALLED_APPS = ['qmoney_payment']

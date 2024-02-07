@@ -33,7 +33,7 @@ class QMoneyPayment(models.Model):
                                                blank=True)
     status = models.CharField(choices=Status.choices,
                               default=Status.I,
-                              max_length=1)
+                              max_length=32)
     transaction = None
 
     # TODO Decide the precision: unity, dime, centime

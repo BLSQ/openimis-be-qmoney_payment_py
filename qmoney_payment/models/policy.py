@@ -19,4 +19,5 @@ class Policy(models.Model):
 
     class Meta:
         managed = False
+        abstract = True
         db_table = 'tblPolicy'
