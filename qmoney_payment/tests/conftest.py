@@ -1,5 +1,6 @@
 import os
 import pytest
+import time
 
 from simplegmail import Gmail
 
@@ -75,6 +76,7 @@ def qmoney_access_token(qmoney_url, qmoney_credentials, qmoney_token):
 @pytest.fixture(scope='class')
 def gmail_client():
     client = Gmail()
+    time.sleep(5)
     gmail_mark_as_read_recent_emails_with_qmoney_otp(client)
     yield client
     gmail_mark_as_read_recent_emails_with_qmoney_otp(client)

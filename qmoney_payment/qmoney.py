@@ -31,14 +31,48 @@ class PaymentTransaction:
     amount_to_pay = 0
     session = None
     transaction_id = None
-    State = Enum('State', ['INITIATED', 'WAIT_FOR_CONFIRMATION', 'PROCEEDED'])
-    current_state = State.INITIATED
+    State = Enum('State', [
+        'INITIATED', 'WAITING_FOR_CONFIRMATION', 'PROCEEDED', 'UNKNOWN',
+        'FAILED'
+    ])
+    current_state = State.UNKNOWN
 
-    def __init__(self, with_session, to_merchant, from_wallet_id, amount):
+    def __init__(self,
+                 with_session,
+                 to_merchant,
+                 from_wallet_id,
+                 amount,
+                 state_initial='I',
+                 assigned_transaction_id=None):
         self.to_merchant = to_merchant
         self.from_wallet_id = from_wallet_id
         self.amount_to_pay = amount
         self.session = with_session
+        self.transaction_id = assigned_transaction_id
+        self.current_state = self.__convert_state_initial_to_state_enum(
+            state_initial)
+
+    def __convert_state_initial_to_state_enum(self, state_initial):
+        return next(
+            iter([
+                elem for elem in PaymentTransaction.State
+                if elem.name[0] == state_initial
+            ]), PaymentTransaction.State.UNKNOWN)
+
+    def is_initiated(self):
+        return self.current_state == PaymentTransaction.State.INITIATED
+
+    def is_waiting_for_confirmation(self):
+        return self.current_state == PaymentTransaction.State.WAITING_FOR_CONFIRMATION
+
+    def is_proceeded(self):
+        return self.current_state == PaymentTransaction.State.PROCEEDED
+
+    def is_failed(self):
+        return self.current_state == PaymentTransaction.State.FAILED
+
+    def is_in_unknown_state(self):
+        return self.current_state == PaymentTransaction.State.UNKNOWN
 
     def state(self):
         return self.current_state
@@ -59,17 +93,26 @@ class PaymentTransaction:
                                                 self.to_merchant.pin_code)
 
         if transaction_id is not None:
-            self.current_state = PaymentTransaction.State.WAIT_FOR_CONFIRMATION
+            self.current_state = PaymentTransaction.State.WAITING_FOR_CONFIRMATION
             self.transaction_id = transaction_id
+        else:
+            self.current_state = PaymentTransaction.State.FAILED
 
-        return transaction_id != None
+        return transaction_id is not None
 
     def proceed(self, otp):
-        if self.transaction_id is None or otp is None:
-            return False
+        if self.transaction_id is None:
+            return (
+                False,
+                'There isn\'t a transaction ID associated to this payment. Please request one before.'
+            )
+        if otp is None:
+            return False, 'The provided OTP is empty.'
         result = self.session.verify_code(self.transaction_id, otp)
-        if result:
+        if result[0]:
             self.current_state = PaymentTransaction.State.PROCEEDED
+        else:
+            self.current_state = PaymentTransaction.State.FAILED
         return result
 
 
@@ -100,9 +143,13 @@ class Session:
         self.username = username
         self.password = password
         self.login_token = login_token
-        self.login()
+
+    def is_logged_in(self):
+        return self.access_token is not None
 
     def login(self):
+        if self.is_logged_in():
+            return
         json_payload = {
             'grantType': 'password',
             'username': self.username,
@@ -124,6 +171,7 @@ class Session:
 
     def get_money(self, payer_wallet_id, merchant_wallet_id, amount,
                   merchant_pin_code):
+        self.login()
         payload = {
             'data': {
                 'fromUser': {
@@ -157,6 +205,7 @@ class Session:
         return response.json()['data']['transactionId']
 
     def verify_code(self, transaction_id, otp):
+        self.login()
         payload = {'transactionId': transaction_id, 'otp': otp}
 
         logger.debug('POST /verifyCode with payload:\n%s', payload)
@@ -167,9 +216,9 @@ class Session:
 
         if response.status_code != 200 or response.json(
         )['responseCode'] != '1':
-            return False
+            return (False, response.text)
 
-        return True
+        return (True, response.text)
 
     def merchant(self, merchant_wallet_id, pin_code):
         return Merchant(merchant_wallet_id, pin_code)
