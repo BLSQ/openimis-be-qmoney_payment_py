@@ -6,7 +6,7 @@ from django.db import models
 
 from qmoney_payment.apps import QMoneyPaymentConfig
 from qmoney_payment.qmoney import PaymentTransaction
-from qmoney_payment.models.policy import Policy
+from qmoney_payment.models.policy import get_policy_model
 
 
 class QMoneyPayment(models.Model):
@@ -14,19 +14,16 @@ class QMoneyPayment(models.Model):
     Status = models.TextChoices('Status',
                                 [(elem.name[0], elem.name)
                                  for elem in PaymentTransaction.State])
-    # (models.TextChoices):
-    #     INITIATED = 'I', 'Initiated'
-    #     WAITING_FOR_CONFIRMATION = 'W', 'Waiting For Confirmation'
-    #     PROCEEDED = 'P', 'Proceeded'
 
     uuid = models.UUIDField(primary_key=True,
                             default=uuid.uuid4,
                             editable=False)
-    policy = models.ForeignKey('Policy',
-                               on_delete=models.CASCADE,
-                               to_field='uuid',
-                               blank=True,
-                               null=True)
+    policy = models.ForeignKey(
+        get_policy_model(),
+        on_delete=models.CASCADE,
+        # probably to enforce
+        blank=True,
+        null=True)
     contribution_uuid = models.UUIDField(null=True, blank=True)
     external_transaction_id = models.CharField(max_length=200,
                                                null=True,
@@ -39,6 +36,12 @@ class QMoneyPayment(models.Model):
     # TODO Decide the precision: unity, dime, centime
     amount = models.IntegerField(default=0, validators=[MinValueValidator(0)])
     payer_wallet = models.CharField(max_length=200)
+
+    @property
+    def policy_uuid(self):
+        if self.policy is None:
+            return None
+        return self.policy.uuid
 
     def request(self):
         if self.payment_transaction().is_waiting_for_confirmation():
@@ -53,14 +56,14 @@ class QMoneyPayment(models.Model):
                 'status': self.status,
                 'message': 'The payment has already been proceeded.'
             }
-        if self.policy.status is not Policy.STATUS_IDLE:
+        if self.policy.status is not get_policy_model().STATUS_IDLE:
             return {
                 'ok':
                 False,
                 'status':
                 self.status,
                 'message':
-                f'The Policy {self.policy.uuid} should be Idle but it is not.'
+                f'The Policy {self.policy_uuid} should be Idle but it is not.'
             }
 
         # TODO manage the case the object has already been created, reuse ?
@@ -133,3 +136,4 @@ class QMoneyPayment(models.Model):
     class Meta:
         managed = True
         db_table = 'tblQmoneyPayment'
+        app_label = 'qmoney_payment'

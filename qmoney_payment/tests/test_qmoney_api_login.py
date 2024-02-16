@@ -1,17 +1,24 @@
 import json
 import os
-import pytest
 import requests
+from unittest import TestCase
 
-from helpers import QMoneyBasicAuth, QMoney
+from .helpers import QMoneyBasicAuth, QMoney
+from .qmoney_helpers import qmoney_url, qmoney_token, qmoney_credentials
 
 
-class TestQmoneyAPILogin:
+class TestQmoneyAPILogin(TestCase):
 
-    def test_logging_in_to_qmoney(self, qmoney_url, qmoney_credentials,
-                                  qmoney_token):
-        response = QMoney.login(qmoney_url, qmoney_credentials, qmoney_token,
-                                True)
+    @classmethod
+    def setUpClass(cls):
+        cls._qmoney_url = qmoney_url()
+        cls._qmoney_credentials = qmoney_credentials()
+        cls._qmoney_token = qmoney_token()
+
+    def test_logging_in_to_qmoney(self):
+        response = QMoney.login(TestQmoneyAPILogin._qmoney_url,
+                                TestQmoneyAPILogin._qmoney_credentials,
+                                TestQmoneyAPILogin._qmoney_token, True)
         assert response.status_code == 200
 
         json_response = response.json()
@@ -24,8 +31,10 @@ class TestQmoneyAPILogin:
         assert data['access_token'] is not None
 
     def test_failing_at_logging_in_to_qmoney_when_wrong_authorization_token(
-            self, qmoney_url, qmoney_credentials):
-        response = QMoney.login(qmoney_url, qmoney_credentials, 'token', True)
+            self):
+        response = QMoney.login(TestQmoneyAPILogin._qmoney_url,
+                                TestQmoneyAPILogin._qmoney_credentials,
+                                'token', True)
 
         assert response.status_code == 401
 
@@ -35,13 +44,14 @@ class TestQmoneyAPILogin:
             'error_description'] == 'Full authentication is required to access this resource'
 
     def test_failing_at_logging_in_to_qmoney_when_missing_initial_authorization_token(
-            self, qmoney_url, qmoney_credentials):
+            self):
         json_payload = {
             "grantType": "password",
-            "username": qmoney_credentials[0],
-            "password": qmoney_credentials[1],
+            "username": TestQmoneyAPILogin._qmoney_credentials[0],
+            "password": TestQmoneyAPILogin._qmoney_credentials[1],
         }
-        response = requests.post(url=f'{qmoney_url}/login', json=json_payload)
+        response = requests.post(url=f'{TestQmoneyAPILogin._qmoney_url}/login',
+                                 json=json_payload)
         assert response.status_code == 401
 
         json_response = response.json()
@@ -49,44 +59,45 @@ class TestQmoneyAPILogin:
         assert json_response['message'] == 'Unauthorized'
         assert json_response['status'] == 401
 
-    def test_failing_at_logging_in_to_qmoney_when_wrong_grantType(
-            self, qmoney_url, qmoney_credentials, qmoney_token):
+    def test_failing_at_logging_in_to_qmoney_when_wrong_grantType(self):
         json_payload = {
             "grantType": "client_credentials",
-            "username": qmoney_credentials[0],
-            "password": qmoney_credentials[1],
+            "username": TestQmoneyAPILogin._qmoney_credentials[0],
+            "password": TestQmoneyAPILogin._qmoney_credentials[1],
         }
 
-        response = requests.post(url=f'{qmoney_url}/login',
+        response = requests.post(url=f'{TestQmoneyAPILogin._qmoney_url}/login',
                                  json=json_payload,
-                                 auth=QMoneyBasicAuth(qmoney_token))
+                                 auth=QMoneyBasicAuth(
+                                     TestQmoneyAPILogin._qmoney_token))
         assert response.status_code == 200
         json_response = response.json()
         assert json_response['responseCode'] == '-5100006'
         assert json_response['responseMessage'] == 'Invalid Nonce Block Node'
 
     def test_failing_at_logging_in_to_qmoney_when_missing_parameter_grant_type(
-            self, qmoney_url, qmoney_credentials, qmoney_token):
+            self):
         json_payload = {
-            "username": qmoney_credentials[0],
-            "password": qmoney_credentials[1],
+            "username": TestQmoneyAPILogin._qmoney_credentials[0],
+            "password": TestQmoneyAPILogin._qmoney_credentials[1],
         }
 
-        response = requests.post(url=f'{qmoney_url}/login',
+        response = requests.post(url=f'{TestQmoneyAPILogin._qmoney_url}/login',
                                  json=json_payload,
-                                 auth=QMoneyBasicAuth(qmoney_token))
+                                 auth=QMoneyBasicAuth(
+                                     TestQmoneyAPILogin._qmoney_token))
         assert response.status_code == 200
         json_response = response.json()
         assert json_response['responseCode'] == -150008
         assert json_response[
             'responseMessage'] == 'Mandatory parameter is missing : GrantType'
 
-    def test_failing_at_logging_in_to_qmoney_when_wrong_username(
-            self, qmoney_url, qmoney_credentials, qmoney_token):
+    def test_failing_at_logging_in_to_qmoney_when_wrong_username(self):
 
-        response = QMoney.login(qmoney_url,
-                                ['username', qmoney_credentials[1]],
-                                qmoney_token, True)
+        response = QMoney.login(
+            TestQmoneyAPILogin._qmoney_url,
+            ['username', TestQmoneyAPILogin._qmoney_credentials[1]],
+            TestQmoneyAPILogin._qmoney_token, True)
 
         assert response.status_code == 200
 
@@ -95,16 +106,16 @@ class TestQmoneyAPILogin:
         assert json_response[
             'responseMessage'] == 'UserAccount not found from cache. UserIdentifier : username'
 
-    def test_failing_at_logging_in_to_qmoney_when_missing_username(
-            self, qmoney_url, qmoney_credentials, qmoney_token):
+    def test_failing_at_logging_in_to_qmoney_when_missing_username(self):
         json_payload = {
             "grantType": "password",
-            "password": qmoney_credentials[1],
+            "password": TestQmoneyAPILogin._qmoney_credentials[1],
         }
 
-        response = requests.post(url=f'{qmoney_url}/login',
+        response = requests.post(url=f'{TestQmoneyAPILogin._qmoney_url}/login',
                                  json=json_payload,
-                                 auth=QMoneyBasicAuth(qmoney_token))
+                                 auth=QMoneyBasicAuth(
+                                     TestQmoneyAPILogin._qmoney_token))
         assert response.status_code == 200
 
         json_response = response.json()
@@ -112,16 +123,16 @@ class TestQmoneyAPILogin:
         assert json_response[
             'responseMessage'] == 'Mandatory parameter is missing : UserName'
 
-    def test_failing_at_logging_in_to_qmoney_when_missing_password(
-            self, qmoney_url, qmoney_credentials, qmoney_token):
+    def test_failing_at_logging_in_to_qmoney_when_missing_password(self):
         json_payload = {
             "grantType": "password",
-            "username": qmoney_credentials[0],
+            "username": TestQmoneyAPILogin._qmoney_credentials[0],
         }
 
-        response = requests.post(url=f'{qmoney_url}/login',
+        response = requests.post(url=f'{TestQmoneyAPILogin._qmoney_url}/login',
                                  json=json_payload,
-                                 auth=QMoneyBasicAuth(qmoney_token))
+                                 auth=QMoneyBasicAuth(
+                                     TestQmoneyAPILogin._qmoney_token))
         assert response.status_code == 200
 
         json_response = response.json()
@@ -129,12 +140,12 @@ class TestQmoneyAPILogin:
         assert json_response[
             'responseMessage'] == 'Mandatory parameter is missing : Password'
 
-    def test_failing_at_logging_in_to_qmoney_when_wrong_password(
-            self, qmoney_url, qmoney_credentials, qmoney_token):
+    def test_failing_at_logging_in_to_qmoney_when_wrong_password(self):
 
-        response = QMoney.login(qmoney_url,
-                                [qmoney_credentials[0], 'password'],
-                                qmoney_token, True)
+        response = QMoney.login(
+            TestQmoneyAPILogin._qmoney_url,
+            [TestQmoneyAPILogin._qmoney_credentials[0], 'password'],
+            TestQmoneyAPILogin._qmoney_token, True)
 
         assert response.status_code == 200
 

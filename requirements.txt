@@ -2,4 +2,5 @@ django~=3.2.15
 djangorestframework
 django-filter~=22.1
 openimis-be-core
+openimis-be-policy
 graphene-django<3

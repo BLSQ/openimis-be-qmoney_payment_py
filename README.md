@@ -1,7 +1,8 @@
 # OpenIMIS module: QMoney mobile payment
 
-This mobile allows an enrollment officer to add a new contribution paid by mobile phone
-via QMoney (a mobile payment provider).
+This OpenIMIS module, a standalone Django app, allows an enrollment officer to
+add a new contribution paid by mobile phone via QMoney (a mobile payment
+provider).
 
 ## Requirements
 
@@ -23,21 +24,33 @@ For test and developments, there are a few additional dependencies to install:
 pip install -r requirements-dev.txt
 ```
 
+TODO: tell how to do so when installed as an OpenIMIS module
+
 ### Settings
 
-The tests are calling an actual staging instance of QMoney (we might update the tests later to 
-replace these calls with a mock). In addition to the QMoney URL, you need to provide some
-settings such as the credentials or the wallet IDs of the payer and payee.
+The tests are calling an actual staging instance of QMoney (we might update the
+tests later to replace these calls with a mock). In addition to the QMoney URL,
+you need to provide some settings such as the credentials or the wallet IDs of
+the payer and payee.
 
-This information has to be provided through the `.test.env` file. There is
-an example that you can copy: `cp .test.env.example .test.env`.
+This information has to be provided through the `.test.env` file. There is an
+example that you can copy: `cp .test.env.example .test.env`. The file has to
+be stored in the root directory of the present OpenIMIS module.
+
+When the module is loaded in the whole OpenIMIS project, you need to put that
+file into the root of the OpenIMIS project, aside the Python script
+`manage.py`. Also you need to make sure the module has been added to the
+`openimis.json` file.
+
+TODO detail how to add it in openimis.json when you develop the module, or just
+use it.
 
 #### QMoney
 
-As explained above, you need some information to run the tests. You'll get
-it directly from QMoney. At the same time, make sure you provide a Gmail
-address. This address will be linked to the payer wallet. That way, you'll receive
-a QMoney One Time Password (OTP) when a payment is requested from that wallet.
+As explained above, you need some information to run the tests. You'll get it
+directly from QMoney. At the same time, make sure you provide a Gmail address.
+This address will be linked to the payer wallet. That way, you'll receive a
+QMoney One Time Password (OTP) when a payment is requested from that wallet.
 
 #### Simple Gmail
 
@@ -48,30 +61,36 @@ do so we use the Python API client
 
 This requires some setup on your side to work. First, you need to retrieve the
 OAuth 2.0 Client ID file `client_secret.json` authorizing the tests. You'll
-find it in 1Password (Bluesquare space - openIMIS vault). Notice that the Gmail address that
-you'll use should belong to the Bluesquare domain. If you run it on a CI,
-you'll need to that before in order to provide an additional file of secret
-`gmail_token.json`.
+find it in 1Password (Bluesquare space - openIMIS vault). Notice that the Gmail
+address that you'll use should belong to the Bluesquare domain. If you run it
+on a CI, you'll need to that before in order to provide an additional file of
+secret `gmail_token.json`.
 
-### Run tests locally
+### Run tests locally (as a standalone Django App)
 
-Without the full OpenIMIS test harness
+Without the full Django test harness
 
 ```bash
 pytest
 ```
 
-As explained in the previous section, some tests rely on an existing GMail account. You run only those tests with:
+As explained in the previous section, some tests rely on an existing GMail account. By default, those tests are skipped. You run also those tests with:
 
 ```bash
-pytest -m "with_gmail"
+RUN_ALSO_TESTS_WITH_GMAIL=1 pytest
 ```
 
-or everything except those with:
+### Run tests with the full Django test harness
+
 ```bash
-pytest -m "not with_gmail"
+./manage.py test --keepdb qmoney_payment
 ```
 
+If you want also run the tests using Gmail, you do as it follows:
+
+```bash
+RUN_ALSO_TESTS_WITH_GMAIL=1 ./manage.py test --keepdb qmoney_payment
+```
 ## Limitations
 
 The QMoney has some inherent known limitations:
@@ -85,13 +104,17 @@ The QMoney has some inherent known limitations:
 * The message sent with the OTP to the payer doesn't contain any additional
   information. It seems there isn't any way to give them context.
 * It seems there isn't any throttle or limit of transactions that you can
-  initiate.
+  initiate (so far it has been tested with 500 wrong OTP).
+* It seems there isn't any expiration of the access token (so far it has been
+  tested with a 14 days old access token).
+* There isn't any information regarding the expiration in the access token, that
+  is a JWT token.
 
 Pending questions:
 
-* limit on the number of attemps to verify a payment (after 100 failed attempts,
+* limit on the number of attemps to verify a payment (after 500 failed attempts,
   it's still possible to confirm the payment with a correct OTP)
 * limit on OTP validity
 * expiration of access token (it seems there isn't as we receive `-1`)
-* what's in the access token if it's a JWT token
+* what's in the access token, that is a JWT token
 * details about `getTransactionStatus`
