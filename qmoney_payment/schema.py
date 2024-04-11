@@ -9,7 +9,7 @@ from graphene_django.filter import DjangoFilterConnectionField
 from graphql import GraphQLError
 
 from .models.qmoney_payment import QMoneyPayment
-from .models.policy import Policy
+from .models.policy import get_policy_model
 
 
 class QMoneyPaymentGQLType(DjangoObjectType):
@@ -24,9 +24,9 @@ class QMoneyPaymentGQLType(DjangoObjectType):
         connection_class = ExtendedConnection
 
     def resolve_policy_uuid(parent, info):
-        if parent.policy is None:
+        if parent is None:
             return None
-        return parent.policy.uuid
+        return parent.policy_uuid
 
 
 class Query(graphene.ObjectType):
@@ -51,7 +51,7 @@ class Query(graphene.ObjectType):
     def resolve_qmoney_payments(root, info, policy_uuid=None):
         # authz
         if policy_uuid is not None:
-            return QMoneyPayment.objects.filter(policy=policy_uuid)
+            return QMoneyPayment.objects.filter(policy__uuid=policy_uuid)
         return QMoneyPayment.objects.all()
 
 
@@ -68,7 +68,7 @@ class ProceedQMoneyPayment(graphene.Mutation):
         # authz
         try:
             one_qmoney_payment = QMoneyPayment.objects.get(uuid=uuid)
-        except Policy.DoesNotExist:
+        except QMoneyPayment.DoesNotExist:
             return GraphQLError(
                 'The UUID does not correspond to any recorded QMoney payment.')
 
@@ -95,8 +95,8 @@ class RequestQMoneyPayment(graphene.Mutation):
         # authz
         try:
             # What if a transaction is ongoing?
-            policy = Policy.objects.get(uuid=policy_uuid)
-        except Policy.DoesNotExist:
+            policy = get_policy_model().objects.get(uuid=policy_uuid)
+        except get_policy_model().DoesNotExist:
             return GraphQLError(
                 'The UUID does not correspond to any existing policy.')
 

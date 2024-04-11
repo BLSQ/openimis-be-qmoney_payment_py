@@ -3,6 +3,7 @@ import os
 from django.apps import AppConfig
 
 from qmoney_payment.qmoney import QMoney
+import qmoney_payment.env
 
 
 class QMoneyPaymentConfig(AppConfig):
@@ -12,6 +13,7 @@ class QMoneyPaymentConfig(AppConfig):
     merchant = None
 
     def __init__(self, app_name, app_module):
+        qmoney_payment.env.load_env()
         super(QMoneyPaymentConfig, self).__init__(app_name, app_module)
         self.settings = {
             'url': os.getenv('QMONEY_URL'),
