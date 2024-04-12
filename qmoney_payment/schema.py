@@ -16,6 +16,7 @@ class QMoneyPaymentGQLType(DjangoObjectType):
 
     policy_uuid = graphene.UUID()
     uuid = graphene.UUID(source='uuid')
+    premium_uuid = graphene.UUID()
 
     class Meta:
         model = QMoneyPayment
@@ -27,6 +28,11 @@ class QMoneyPaymentGQLType(DjangoObjectType):
         if parent is None:
             return None
         return parent.policy_uuid
+
+    def resolve_premium_uuid(parent, info):
+        if parent is None:
+            return None
+        return parent.premium_uuid
 
 
 class Query(graphene.ObjectType):

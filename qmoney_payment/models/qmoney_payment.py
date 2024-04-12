@@ -3,10 +3,15 @@ import uuid
 from django.apps import apps
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.db import transaction as django_db_transaction
 
 from qmoney_payment.apps import QMoneyPaymentConfig
 from qmoney_payment.qmoney import PaymentTransaction
 from qmoney_payment.models.policy import get_policy_model
+from qmoney_payment.models.premium import get_premium_model
+from qmoney_payment.services import create_premium_for
+
+Struct = lambda **kwargs: type("Object", (), kwargs)
 
 
 class QMoneyPayment(models.Model):
@@ -24,7 +29,11 @@ class QMoneyPayment(models.Model):
         # probably to enforce
         blank=True,
         null=True)
-    contribution_uuid = models.UUIDField(null=True, blank=True)
+    premium = models.ForeignKey(get_premium_model(),
+                                on_delete=models.CASCADE,
+                                blank=True,
+                                null=True)
+    # contribution_uuid = models.UUIDField(null=True, blank=True)
     external_transaction_id = models.CharField(max_length=200,
                                                null=True,
                                                blank=True)
@@ -42,6 +51,15 @@ class QMoneyPayment(models.Model):
         if self.policy is None:
             return None
         return self.policy.uuid
+
+    @property
+    def premium_uuid(self):
+        if self.premium is None:
+            return None
+        return self.premium.uuid
+
+    def is_proceeded(self):
+        return self.status == QMoneyPayment.Status.P
 
     def request(self):
         if self.payment_transaction().is_waiting_for_confirmation():
@@ -85,6 +103,7 @@ class QMoneyPayment(models.Model):
             }
         return {'ok': True, 'status': self.status}
 
+    @django_db_transaction.atomic
     def proceed(self, otp):
         if self.payment_transaction().is_proceeded():
             # maybe "raise an info" to say it's already done
@@ -104,6 +123,8 @@ class QMoneyPayment(models.Model):
         if response[0]:
             self.status = QMoneyPayment.Status.P
             self.save()
+            user = Struct(id_for_audit='1')
+            create_premium_for(self, user)
         else:
             return {
                 'ok':

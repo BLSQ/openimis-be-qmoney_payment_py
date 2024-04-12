@@ -247,7 +247,7 @@ class TestQmoneyAPIVerifyCode(TestCase):
         assert response.status_code == 200
         json_response = response.json()
         assert json_response['data']['transactionId'] == transaction_id
-        assert json_response['responseCode'] == '1'
+        assert json_response['responseCode'] == '1', , f'response body is {response.text}'
         assert json_response['responseMessage'] == 'Success'
         wallet = next((wallet
                        for wallet in json_response['data']['balanceData']

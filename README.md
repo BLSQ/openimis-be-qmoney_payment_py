@@ -1,8 +1,8 @@
 # OpenIMIS module: QMoney mobile payment
 
 This OpenIMIS module, a standalone Django app, allows an enrollment officer to
-add a new contribution paid by mobile phone via QMoney (a mobile payment
-provider).
+add a new contribution (premium) paid by mobile phone via QMoney (a mobile
+payment provider).
 
 ## Requirements
 
