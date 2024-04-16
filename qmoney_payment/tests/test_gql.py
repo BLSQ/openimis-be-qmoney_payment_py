@@ -14,14 +14,18 @@ from simplegmail import Gmail
 
 from qmoney_payment.models.qmoney_payment import QMoneyPayment
 from qmoney_payment.models.policy import get_policy_model
+from qmoney_payment.models.premium import get_premium_model
 from qmoney_payment.schema import Query, Mutation
 
 from . import policy_helpers
+from . import premium_helpers
 from . import qmoney_helpers
 from .helpers import gmail_wait_and_get_recent_emails_with_qmoney_otp, current_datetime, extract_otp_from_email_messages, gmail_mark_messages_as_read, gmail_mark_as_read_recent_emails_with_qmoney_otp
 
 
 class TestQMoneyPaymentGraphQL(TestCase):
+
+    DEFAULT_POLICY_VALUE = 1
 
     @classmethod
     def gmail_client(cls):
@@ -47,33 +51,41 @@ class TestQMoneyPaymentGraphQL(TestCase):
         cls._gql_client = TestQMoneyPaymentGraphQL.gql_client()
         if cls.is_standalone_django_app_tests():
             policy_helpers.setup_policy_table()
+            premium_helpers.setup_premium_table()
         cls._gmail_client = cls.gmail_client()
 
     @classmethod
     def tearDownClass(cls):
         if cls.is_standalone_django_app_tests():
+            premium_helpers.teardown_premium_table()
             policy_helpers.teardown_policy_table()
         if 'RUN_ALSO_TESTS_WITH_GMAIL' in os.environ:
             gmail_mark_as_read_recent_emails_with_qmoney_otp(cls._gmail_client)
 
-    def get_one_policy_and_its_old_status(self):
+    def get_one_policy_and_its_previous_state(self):
         if self.is_standalone_django_app_tests():
             return get_policy_model().objects.create(
                 status=get_policy_model().STATUS_IDLE), None
         policy = get_policy_model().objects.first()
-        old_status = policy.status
+        previous_policy_state = {
+            'status': policy.status,
+            'value': policy.value
+        }
         policy.status = get_policy_model().STATUS_IDLE
+        policy.value = self.DEFAULT_POLICY_VALUE
         policy.save()
-        return policy, old_status
+        return policy, previous_policy_state
 
     def cleanup_one_policy(self):
         if self.is_standalone_django_app_tests():
             self._one_policy.delete()
-        self._one_policy.status = self._one_policy_old_status
+            return
+        self._one_policy.status = self._one_policy_previous_state['status']
+        self._one_policy.value = self._one_policy_previous_state['value']
         self._one_policy.save()
 
     def setUp(self):
-        self._one_policy, self._one_policy_old_status = self.get_one_policy_and_its_old_status(
+        self._one_policy, self._one_policy_previous_state = self.get_one_policy_and_its_previous_state(
         )
 
     def tearDown(self):
@@ -92,7 +104,8 @@ class TestQMoneyPaymentGraphQL(TestCase):
             'data': {
                 'qmoneyPayment': {
                     'amount': item.get('amount', 0),
-                    'contributionUuid': None,
+                    'premiumUuid':
+                    self.get_none_or_lower(item, 'premium_uuid'),
                     'externalTransactionId': item.get('transaction_id', None),
                     'payerWallet': item['payer_wallet'],
                     'policyUuid': self.get_none_or_lower(item, 'policy_uuid'),
@@ -110,8 +123,8 @@ class TestQMoneyPaymentGraphQL(TestCase):
                         'node': {
                             'amount':
                             item.get('amount', 0),
-                            'contributionUuid':
-                            None,
+                            'premiumUuid':
+                            self.get_none_or_lower(item, 'premium_uuid'),
                             'externalTransactionId':
                             None,
                             'payerWallet':
@@ -140,7 +153,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
                 amount
                 payerWallet
                 policyUuid
-                contributionUuid
+                premiumUuid
                 externalTransactionId
               }
             }
@@ -164,7 +177,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
                 amount
                 payerWallet
                 policyUuid
-                contributionUuid
+                premiumUuid
                 externalTransactionId
               }
             }
@@ -192,7 +205,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
                 amount
                 payerWallet
                 policyUuid
-                contributionUuid
+                premiumUuid
                 externalTransactionId
               }
             }
@@ -230,7 +243,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
                 amount
                 payerWallet
                 policyUuid
-                contributionUuid
+                premiumUuid
                 externalTransactionId
               }
             }
@@ -262,7 +275,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
                 amount
                 payerWallet
                 policyUuid
-                contributionUuid
+                premiumUuid
                 externalTransactionId
               }
             }
@@ -290,7 +303,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
             amount
             payerWallet
             policyUuid
-            contributionUuid
+            premiumUuid
             externalTransactionId
           }
         }
@@ -314,7 +327,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
             amount
             payerWallet
             policyUuid
-            contributionUuid
+            premiumUuid
             externalTransactionId
           }
         }
@@ -341,7 +354,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
               amount
               payerWallet
               policyUuid
-              contributionUuid
+              premiumUuid
               externalTransactionId
             }
             ok
@@ -394,7 +407,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
               amount
               payerWallet
               policyUuid
-              contributionUuid
+              premiumUuid
               externalTransactionId
             }
             ok
@@ -422,7 +435,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
               amount
               payerWallet
               policyUuid
-              contributionUuid
+              premiumUuid
               externalTransactionId
             }
             ok
@@ -449,7 +462,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
               amount
               payerWallet
               policyUuid
-              contributionUuid
+              premiumUuid
               externalTransactionId
             }
             ok
@@ -465,7 +478,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
                      'Skipping tests using Gmail')
     def test_requesting_and_proceeding_qmoney_payment_for_an_existing_given_policy(
             self):
-        amount = 1
+        amount = self.DEFAULT_POLICY_VALUE
         before_initiating_transaction = current_datetime()
 
         query = '''
@@ -476,8 +489,8 @@ class TestQMoneyPaymentGraphQL(TestCase):
               status
               amount
               payerWallet
+              premiumUuid
               policyUuid
-              contributionUuid
               externalTransactionId
             }
             ok
@@ -524,7 +537,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
               amount
               payerWallet
               policyUuid
-              contributionUuid
+              premiumUuid
               externalTransactionId
             }
             ok
@@ -536,6 +549,11 @@ class TestQMoneyPaymentGraphQL(TestCase):
         )
 
         actual = self._gql_client.execute(query)
+        premium = get_premium_model().objects.filter(
+            policy__uuid=self._one_policy.uuid, receipt=uuid).first()
+        assert premium != None
+        self._one_policy.refresh_from_db()
+        assert self._one_policy.status == get_policy_model().STATUS_ACTIVE
         expected = self.generate_expected_mutation_ok_response(
             'proceedQmoneyPayment', {
                 'uuid': uuid,
@@ -544,5 +562,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
                 'amount': amount,
                 'payer_wallet': self._qmoney_payer,
                 'transaction_id': transaction_id,
+                'premium_uuid': premium.uuid
             })
         assert actual == expected, f'should have been {expected}, but we got {actual}'
+        premium.delete()

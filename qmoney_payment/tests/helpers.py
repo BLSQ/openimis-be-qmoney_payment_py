@@ -7,6 +7,8 @@ from simplegmail.query import construct_query
 
 from qmoney_payment.qmoney import QMoneyBasicAuth, QMoneyBearerAuth
 
+Struct = lambda **kwargs: type("Object", (), kwargs)
+
 
 class QMoney:
 
