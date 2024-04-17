@@ -4,8 +4,12 @@ import time
 import uuid
 import unittest
 
+from django.apps import apps
+from django.conf import settings
+from django.contrib.auth.models import AnonymousUser
 from django.db import connection
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
+from django.utils.module_loading import import_string
 
 import graphene
 from graphene.test import Client
@@ -21,6 +25,15 @@ from . import policy_helpers
 from . import premium_helpers
 from . import qmoney_helpers
 from .helpers import gmail_wait_and_get_recent_emails_with_qmoney_otp, current_datetime, extract_otp_from_email_messages, gmail_mark_messages_as_read, gmail_mark_as_read_recent_emails_with_qmoney_otp
+from .helpers import Struct, random_string
+
+
+def site_root():
+    if callable(settings.SITE_ROOT):
+        # it is a function in the main app
+        return settings.SITE_ROOT()
+
+    return settings.SITE_ROOT
 
 
 class TestQMoneyPaymentGraphQL(TestCase):
@@ -42,6 +55,12 @@ class TestQMoneyPaymentGraphQL(TestCase):
         return Client(schema)
 
     @classmethod
+    def request_context(cls):
+        context = RequestFactory().post(f'/{site_root()}graphql')
+        context.user = cls._admin_user
+        return context
+
+    @classmethod
     def is_standalone_django_app_tests(cls):
         return 'PYTEST_CURRENT_TEST' in os.environ
 
@@ -53,6 +72,9 @@ class TestQMoneyPaymentGraphQL(TestCase):
             policy_helpers.setup_policy_table()
             premium_helpers.setup_premium_table()
         cls._gmail_client = cls.gmail_client()
+        cls._anonymous_user = AnonymousUser()
+        cls._admin_user = cls.create_admin_user()
+        cls._guest_user = cls.create_user_without_rights()
 
     @classmethod
     def tearDownClass(cls):
@@ -61,6 +83,43 @@ class TestQMoneyPaymentGraphQL(TestCase):
             policy_helpers.teardown_policy_table()
         if 'RUN_ALSO_TESTS_WITH_GMAIL' in os.environ:
             gmail_mark_as_read_recent_emails_with_qmoney_otp(cls._gmail_client)
+        if not cls.is_standalone_django_app_tests():
+            cls._admin_user.delete()
+            cls._guest_user.delete()
+
+    @classmethod
+    def create_admin_user(cls):
+        username = f'TQPGQL_Admin-{random_string(4)}'
+
+        if cls.is_standalone_django_app_tests():
+            return Struct(username=username,
+                          id_for_audit='1',
+                          id=1,
+                          has_perms=lambda list: True)
+
+        create_test_interactive_user = import_string(
+            'core.test_helpers.create_test_interactive_user')
+        return create_test_interactive_user(username=username)
+
+    @classmethod
+    def create_user_without_rights(cls):
+        username = f'TQPGQL_Guest-{random_string(4)}'
+        if cls.is_standalone_django_app_tests():
+            return Struct(username=username,
+                          id_for_audit='2',
+                          id=666,
+                          has_perms=lambda list: False)
+
+        create_test_interactive_user = import_string(
+            'core.test_helpers.create_test_interactive_user')
+        return create_test_interactive_user(username=username, roles=[1])
+
+    def execute_gql_with_context(self, query):
+        return self._gql_client.execute(query,
+                                        context_value=self._request_context)
+
+    def switch_to_user(self, user):
+        self._request_context.user = user
 
     def get_one_policy_and_its_previous_state(self):
         if self.is_standalone_django_app_tests():
@@ -87,6 +146,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
     def setUp(self):
         self._one_policy, self._one_policy_previous_state = self.get_one_policy_and_its_previous_state(
         )
+        self._request_context = self.request_context()
 
     def tearDown(self):
         self.cleanup_one_policy()
@@ -141,6 +201,38 @@ class TestQMoneyPaymentGraphQL(TestCase):
             }
         }
 
+    def test_failing_at_listing_all_qmoney_payments_with_unauthorized_user(
+            self):
+        self.switch_to_user(self._anonymous_user)
+        query = '''
+        query {
+          qmoneyPayments{
+            edges{
+              node{
+                uuid
+                status
+                amount
+                payerWallet
+                policyUuid
+                premiumUuid
+                externalTransactionId
+              }
+            }
+          }
+        }
+        '''
+
+        actual = self.execute_gql_with_context(query)
+        assert actual['data']['qmoneyPayments'] is None
+        assert actual['errors'][0][
+            'message'] == "['User needs to be authenticated for this operation']"
+
+        self.switch_to_user(self._guest_user)
+        actual = self.execute_gql_with_context(query)
+        assert actual['data']['qmoneyPayments'] is None
+        assert actual['errors'][0][
+            'message'] == 'User not authorized for this operation'
+
     def test_listing_qmoney_payments_for_a_given_policy_when_there_is_none(
             self):
         query = '''
@@ -163,7 +255,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
 
         expected = self.generate_expected_list()
 
-        actual = self._gql_client.execute(query)
+        actual = self.execute_gql_with_context(query)
         assert expected == actual, f'should have been {expected}, but we got {actual}'
 
     def test_listing_all_qmoney_payments_when_there_is_none(self):
@@ -187,7 +279,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
 
         expected = self.generate_expected_list()
 
-        actual = self._gql_client.execute(query)
+        actual = self.execute_gql_with_context(query)
         assert expected == actual, f'should have been {expected}, but we got {actual}'
 
     def test_listing_all_qmoney_payments_when_there_is_one(self):
@@ -222,7 +314,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
             self._qmoney_payer,
         }])
 
-        actual = self._gql_client.execute(query)
+        actual = self.execute_gql_with_context(query)
         assert expected == actual, f'should have been {expected}, but we got {actual}'
 
     def test_listing_all_qmoney_payments_for_a_given_policy_when_there_is_one(
@@ -262,7 +354,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
             self._qmoney_payer,
         }])
 
-        actual = self._gql_client.execute(query)
+        actual = self.execute_gql_with_context(query)
         assert expected == actual, f'should have been {expected}, but we got {actual}'
 
         query = '''
@@ -285,8 +377,43 @@ class TestQMoneyPaymentGraphQL(TestCase):
 
         expected = self.generate_expected_list()
 
-        actual = self._gql_client.execute(query)
+        actual = self.execute_gql_with_context(query)
         assert expected == actual, f'should have been {expected}, but we got {actual}'
+
+    def test_failing_at_retrieving_one_existing_qmoney_payment_with_unauthorized_user(
+            self):
+        self.switch_to_user(self._anonymous_user)
+
+        amount = 10
+        one_qmoney_payment = QMoneyPayment.objects.create(
+            policy=self._one_policy,
+            amount=amount,
+            payer_wallet=self._qmoney_payer)
+
+        query = '''
+        query {
+          qmoneyPayment(uuid: "%s"){
+            uuid
+            status
+            amount
+            payerWallet
+            policyUuid
+            premiumUuid
+            externalTransactionId
+          }
+        }
+        ''' % (one_qmoney_payment.uuid, )
+
+        actual = self.execute_gql_with_context(query)
+        assert actual['data']['qmoneyPayment'] is None
+        assert actual['errors'][0][
+            'message'] == "['User needs to be authenticated for this operation']"
+
+        self.switch_to_user(self._guest_user)
+        actual = self.execute_gql_with_context(query)
+        assert actual['data']['qmoneyPayment'] is None
+        assert actual['errors'][0][
+            'message'] == 'User not authorized for this operation'
 
     def test_retrieving_one_existing_qmoney_payment_with_its_uuid(self):
         amount = 10
@@ -316,7 +443,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
             'payer_wallet': self._qmoney_payer,
         })
 
-        actual = self._gql_client.execute(query)
+        actual = self.execute_gql_with_context(query)
         assert expected == actual, f'should have been {expected}, but we got {actual}'
 
         query = '''
@@ -335,13 +462,49 @@ class TestQMoneyPaymentGraphQL(TestCase):
 
         expected = self.generate_expected()
 
-        actual = self._gql_client.execute(query)
+        actual = self.execute_gql_with_context(query)
         assert expected == actual, f'should have been {expected}, but we got {actual}'
 
     def generate_expected_mutation_ok_response(self, mutation_name, item=None):
         result = self.generate_expected(item)['data']
         result['ok'] = True
         return {'data': collections.OrderedDict({mutation_name: result})}
+
+    def test_failing_at_requesting_qmoney_payment_for_an_existing_given_policy_with_unauthorized_user(
+            self):
+        self.switch_to_user(self._anonymous_user)
+        amount = 10
+        query = '''
+        mutation {
+          requestQmoneyPayment(policyUuid: "%s", amount: %i, payerWallet: "%s") {
+            qmoneyPayment {
+              uuid
+              status
+              amount
+              payerWallet
+              policyUuid
+              premiumUuid
+              externalTransactionId
+            }
+            ok
+          }
+        }
+        ''' % (
+            self._one_policy.uuid,
+            amount,
+            self._qmoney_payer,
+        )
+
+        actual = self.execute_gql_with_context(query)
+        assert actual['data']['requestQmoneyPayment'] is None
+        assert actual['errors'][0][
+            'message'] == "['User needs to be authenticated for this operation']"
+
+        self.switch_to_user(self._guest_user)
+        actual = self.execute_gql_with_context(query)
+        assert actual['data']['requestQmoneyPayment'] is None
+        assert actual['errors'][0][
+            'message'] == 'User not authorized for this operation'
 
     def test_requesting_qmoney_payment_for_an_existing_given_policy(self):
         amount = 10
@@ -366,7 +529,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
             self._qmoney_payer,
         )
 
-        actual = self._gql_client.execute(query)
+        actual = self.execute_gql_with_context(query)
         assert actual['data'][
             'requestQmoneyPayment'], f'should have returned a `requestQmoneyPayment`, but got {actual}'
         assert 'ok' in actual['data']['requestQmoneyPayment'] and actual[
@@ -419,7 +582,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
             self._qmoney_payer,
         )
 
-        actual = self._gql_client.execute(query)
+        actual = self.execute_gql_with_context(query)
         assert actual['data']['requestQmoneyPayment'] is None
         assert actual['errors'][0][
             'message'] == f'Something went wrong. The payment could not be requested. The transaction is INITIATED. Reason: The Policy {self._one_policy.uuid} should be Idle but it is not.'
@@ -447,7 +610,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
             self._qmoney_payer,
         )
 
-        actual = self._gql_client.execute(query)
+        actual = self.execute_gql_with_context(query)
         assert actual['data']['requestQmoneyPayment'] is None
         assert actual['errors'][0][
             'message'] == 'The UUID does not correspond to any existing policy.'
@@ -470,7 +633,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
         }
         '''
 
-        actual = self._gql_client.execute(query)
+        actual = self.execute_gql_with_context(query)
         assert 'Syntax Error GraphQL (3:32) Expected Name' in actual['errors'][
             0]['message']
 
@@ -502,7 +665,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
             self._qmoney_payer,
         )
 
-        actual = self._gql_client.execute(query)
+        actual = self.execute_gql_with_context(query)
         assert actual['data']['requestQmoneyPayment'][
             'ok'], 'should have returned ok'
         uuid = actual['data']['requestQmoneyPayment']['qmoneyPayment']['uuid']
@@ -548,7 +711,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
             otp,
         )
 
-        actual = self._gql_client.execute(query)
+        actual = self.execute_gql_with_context(query)
         premium = get_premium_model().objects.filter(
             policy__uuid=self._one_policy.uuid, receipt=uuid).first()
         assert premium != None
@@ -566,3 +729,90 @@ class TestQMoneyPaymentGraphQL(TestCase):
             })
         assert actual == expected, f'should have been {expected}, but we got {actual}'
         premium.delete()
+
+    @unittest.skipIf('RUN_ALSO_TESTS_WITH_GMAIL' not in os.environ,
+                     'Skipping tests using Gmail')
+    def test_failing_at_proceeding_qmoney_payment_for_an_existing_given_policy_with_unauthorized_user(
+            self):
+        amount = self.DEFAULT_POLICY_VALUE
+        before_initiating_transaction = current_datetime()
+
+        query = '''
+        mutation {
+          requestQmoneyPayment(policyUuid: "%s", amount: %i, payerWallet: "%s") {
+            qmoneyPayment {
+              uuid
+              status
+              amount
+              payerWallet
+              premiumUuid
+              policyUuid
+              externalTransactionId
+            }
+            ok
+          }
+        }
+        ''' % (
+            self._one_policy.uuid,
+            amount,
+            self._qmoney_payer,
+        )
+
+        actual = self.execute_gql_with_context(query)
+        assert actual['data']['requestQmoneyPayment'] is not None
+        assert actual['data']['requestQmoneyPayment'][
+            'ok'], 'should have returned ok'
+        uuid = actual['data']['requestQmoneyPayment']['qmoneyPayment']['uuid']
+        assert uuid is not None
+        transaction_id = actual['data']['requestQmoneyPayment'][
+            'qmoneyPayment']['externalTransactionId']
+        expected = self.generate_expected_mutation_ok_response(
+            'requestQmoneyPayment', {
+                'uuid': uuid,
+                'policy_uuid': f'{self._one_policy.uuid}',
+                'status': 'WAITING_FOR_CONFIRMATION',
+                'amount': amount,
+                'payer_wallet': self._qmoney_payer,
+                'transaction_id': transaction_id,
+            })
+        assert actual == expected, f'should have been {expected}, but we got {actual}'
+
+        messages = gmail_wait_and_get_recent_emails_with_qmoney_otp(
+            self._gmail_client, 10, 300)
+
+        otp = extract_otp_from_email_messages(messages,
+                                              before_initiating_transaction)
+
+        gmail_mark_messages_as_read(messages)
+
+        query = '''
+        mutation {
+          proceedQmoneyPayment(uuid: "%s", otp: "%s") {
+            qmoneyPayment {
+              uuid
+              status
+              amount
+              payerWallet
+              policyUuid
+              premiumUuid
+              externalTransactionId
+            }
+            ok
+          }
+        }
+        ''' % (
+            uuid,
+            otp,
+        )
+
+        self.switch_to_user(self._anonymous_user)
+        actual = self.execute_gql_with_context(query)
+        assert actual['data']['proceedQmoneyPayment'] is None
+        assert actual['errors'][0][
+            'message'] == "['User needs to be authenticated for this operation']"
+
+        self.switch_to_user(self._guest_user)
+        actual = self.execute_gql_with_context(query)
+        assert actual['data']['proceedQmoneyPayment'] is None
+        assert actual['errors'][0][
+            'message'] == 'User not authorized for this operation'
