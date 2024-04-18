@@ -2,12 +2,18 @@ from datetime import datetime, timezone, timedelta
 import requests
 import re
 import time
+from random import choice
+from string import ascii_lowercase
 
 from simplegmail.query import construct_query
 
 from qmoney_payment.qmoney import QMoneyBasicAuth, QMoneyBearerAuth
 
 Struct = lambda **kwargs: type("Object", (), kwargs)
+
+
+def random_string(length):
+    return ''.join(choice(ascii_lowercase) for i in range(length))
 
 
 class QMoney:

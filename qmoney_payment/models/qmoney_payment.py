@@ -33,7 +33,6 @@ class QMoneyPayment(models.Model):
                                 on_delete=models.CASCADE,
                                 blank=True,
                                 null=True)
-    # contribution_uuid = models.UUIDField(null=True, blank=True)
     external_transaction_id = models.CharField(max_length=200,
                                                null=True,
                                                blank=True)
@@ -104,7 +103,7 @@ class QMoneyPayment(models.Model):
         return {'ok': True, 'status': self.status}
 
     @django_db_transaction.atomic
-    def proceed(self, otp):
+    def proceed(self, otp, user):
         if self.payment_transaction().is_proceeded():
             # maybe "raise an info" to say it's already done
             return {'ok': True, 'status': self.status}
@@ -123,7 +122,6 @@ class QMoneyPayment(models.Model):
         if response[0]:
             self.status = QMoneyPayment.Status.P
             self.save()
-            user = Struct(id_for_audit='1')
             create_premium_for(self, user)
         else:
             return {
@@ -138,11 +136,11 @@ class QMoneyPayment(models.Model):
         return {'ok': True, 'status': self.status}
 
     def merchant(self):
-        config = apps.get_app_config("qmoney_payment")
+        config = apps.get_app_config(QMoneyPaymentConfig.name)
         return config.merchant
 
     def session(self):
-        config = apps.get_app_config("qmoney_payment")
+        config = apps.get_app_config(QMoneyPaymentConfig.name)
         return config.session
 
     def payment_transaction(self):

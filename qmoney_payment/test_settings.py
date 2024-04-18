@@ -4,4 +4,11 @@ DATABASES['default'] = {
     'NAME': 'db.sqlite3'
 }
 USE_TZ = False
-INSTALLED_APPS = ['qmoney_payment']
+INSTALLED_APPS = [
+    'qmoney_payment', 'django.contrib.auth', 'django.contrib.contenttypes'
+]
+SITE_ROOT = 'api/'
+
+LANGUAGE_CODE = 'en'
+
+LOCALE_PATHS = ['locale']
