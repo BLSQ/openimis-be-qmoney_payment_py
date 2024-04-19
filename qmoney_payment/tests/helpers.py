@@ -1,9 +1,12 @@
 from datetime import datetime, timezone, timedelta
+import os
+from random import choice
 import requests
 import re
-import time
-from random import choice
 from string import ascii_lowercase
+import time
+
+from django.apps import apps
 
 from simplegmail.query import construct_query
 
@@ -14,6 +17,12 @@ Struct = lambda **kwargs: type("Object", (), kwargs)
 
 def random_string(length):
     return ''.join(choice(ascii_lowercase) for i in range(length))
+
+
+def is_standalone_django_app_tests():
+    return ('PYTEST_CURRENT_TEST'
+            in os.environ) and not (apps.is_installed('policy')
+                                    and apps.is_installed('contribution'))
 
 
 class QMoney:

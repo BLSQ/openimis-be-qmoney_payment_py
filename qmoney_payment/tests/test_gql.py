@@ -26,6 +26,7 @@ from . import premium_helpers
 from . import qmoney_helpers
 from .helpers import gmail_wait_and_get_recent_emails_with_qmoney_otp, current_datetime, extract_otp_from_email_messages, gmail_mark_messages_as_read, gmail_mark_as_read_recent_emails_with_qmoney_otp
 from .helpers import Struct, random_string
+from .helpers import is_standalone_django_app_tests
 
 
 def site_root():
@@ -61,14 +62,10 @@ class TestQMoneyPaymentGraphQL(TestCase):
         return context
 
     @classmethod
-    def is_standalone_django_app_tests(cls):
-        return 'PYTEST_CURRENT_TEST' in os.environ
-
-    @classmethod
     def setUpClass(cls):
         cls._qmoney_payer = qmoney_helpers.qmoney_payer()
         cls._gql_client = TestQMoneyPaymentGraphQL.gql_client()
-        if cls.is_standalone_django_app_tests():
+        if is_standalone_django_app_tests():
             policy_helpers.setup_policy_table()
             premium_helpers.setup_premium_table()
         cls._gmail_client = cls.gmail_client()
@@ -78,12 +75,12 @@ class TestQMoneyPaymentGraphQL(TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        if cls.is_standalone_django_app_tests():
+        if is_standalone_django_app_tests():
             premium_helpers.teardown_premium_table()
             policy_helpers.teardown_policy_table()
         if 'RUN_ALSO_TESTS_WITH_GMAIL' in os.environ:
             gmail_mark_as_read_recent_emails_with_qmoney_otp(cls._gmail_client)
-        if not cls.is_standalone_django_app_tests():
+        if not is_standalone_django_app_tests():
             cls._admin_user.delete()
             cls._guest_user.delete()
 
@@ -91,7 +88,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
     def create_admin_user(cls):
         username = f'TQPGQL_Admin-{random_string(4)}'
 
-        if cls.is_standalone_django_app_tests():
+        if is_standalone_django_app_tests():
             return Struct(username=username,
                           id_for_audit='1',
                           id=1,
@@ -104,7 +101,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
     @classmethod
     def create_user_without_rights(cls):
         username = f'TQPGQL_Guest-{random_string(4)}'
-        if cls.is_standalone_django_app_tests():
+        if is_standalone_django_app_tests():
             return Struct(username=username,
                           id_for_audit='2',
                           id=666,
@@ -122,7 +119,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
         self._request_context.user = user
 
     def get_one_policy_and_its_previous_state(self):
-        if self.is_standalone_django_app_tests():
+        if is_standalone_django_app_tests():
             return get_policy_model().objects.create(
                 status=get_policy_model().STATUS_IDLE), None
         policy = get_policy_model().objects.first()
@@ -136,7 +133,7 @@ class TestQMoneyPaymentGraphQL(TestCase):
         return policy, previous_policy_state
 
     def cleanup_one_policy(self):
-        if self.is_standalone_django_app_tests():
+        if is_standalone_django_app_tests():
             self._one_policy.delete()
             return
         self._one_policy.status = self._one_policy_previous_state['status']
