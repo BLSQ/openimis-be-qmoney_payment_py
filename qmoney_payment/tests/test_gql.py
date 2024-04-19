@@ -21,12 +21,14 @@ from qmoney_payment.models.policy import get_policy_model
 from qmoney_payment.models.premium import get_premium_model
 from qmoney_payment.schema import Query, Mutation
 
-from . import policy_helpers
-from . import premium_helpers
 from . import qmoney_helpers
 from .helpers import gmail_wait_and_get_recent_emails_with_qmoney_otp, current_datetime, extract_otp_from_email_messages, gmail_mark_messages_as_read, gmail_mark_as_read_recent_emails_with_qmoney_otp
 from .helpers import Struct, random_string
 from .helpers import is_standalone_django_app_tests
+from .fake_policy import FakePolicy
+from .fake_premium import FakePremium
+from .fake_mutation_log import FakeMutationLog
+from .fakemodel_helpers import setup_table_for, teardown_table_for
 
 
 def site_root():
@@ -66,8 +68,9 @@ class TestQMoneyPaymentGraphQL(TestCase):
         cls._qmoney_payer = qmoney_helpers.qmoney_payer()
         cls._gql_client = TestQMoneyPaymentGraphQL.gql_client()
         if is_standalone_django_app_tests():
-            policy_helpers.setup_policy_table()
-            premium_helpers.setup_premium_table()
+            setup_table_for(FakeMutationLog)
+            setup_table_for(FakePolicy)
+            setup_table_for(FakePremium)
         cls._gmail_client = cls.gmail_client()
         cls._anonymous_user = AnonymousUser()
         cls._admin_user = cls.create_admin_user()
@@ -76,8 +79,9 @@ class TestQMoneyPaymentGraphQL(TestCase):
     @classmethod
     def tearDownClass(cls):
         if is_standalone_django_app_tests():
-            premium_helpers.teardown_premium_table()
-            policy_helpers.teardown_policy_table()
+            teardown_table_for(FakePremium)
+            teardown_table_for(FakePolicy)
+            teardown_table_for(FakeMutationLog)
         if 'RUN_ALSO_TESTS_WITH_GMAIL' in os.environ:
             gmail_mark_as_read_recent_emails_with_qmoney_otp(cls._gmail_client)
         if not is_standalone_django_app_tests():
@@ -553,6 +557,11 @@ class TestQMoneyPaymentGraphQL(TestCase):
             })
         assert actual == expected, f'should have been {expected}, but we got {actual}'
 
+        mutation_log = FakeMutationLog.objects.all().first()
+
+        assert mutation_log.client_mutation_label == f'Request QMoney Payment (wallet: {self._qmoney_payer}, amount: {amount}, policy: {self._one_policy.uuid})'
+        assert mutation_log.status == FakeMutationLog.SUCCESS
+
     def test_failing_at_requesting_qmoney_payment_for_an_existing_given_non_idle_policy(
             self):
         self._one_policy.status = get_policy_model().STATUS_ACTIVE
@@ -581,11 +590,19 @@ class TestQMoneyPaymentGraphQL(TestCase):
 
         actual = self.execute_gql_with_context(query)
         assert actual['data']['requestQmoneyPayment'] is None
-        assert actual['errors'][0][
-            'message'] == f'Something went wrong. The payment could not be requested. The transaction is INITIATED. Reason: The Policy {self._one_policy.uuid} should be Idle but it is not.'
+        expected_error_message = f'Something went wrong. The payment could not be requested. The transaction is INITIATED. Reason: The Policy {self._one_policy.uuid} should be Idle but it is not.'
+        assert actual['errors'][0]['message'] == expected_error_message
+
+        mutation_log = FakeMutationLog.objects.all().first()
+
+        assert mutation_log.client_mutation_label == f'Request QMoney Payment (wallet: {self._qmoney_payer}, amount: {amount}, policy: {self._one_policy.uuid})'
+        assert mutation_log.status == FakeMutationLog.ERROR
+        assert mutation_log.error == expected_error_message
 
     def test_failing_at_requesting_qmoney_payment_for_an_absent_given_policy(
             self):
+        policy_uuid = uuid.uuid4()
+        amount = 0
         query = '''
         mutation {
           requestQmoneyPayment(policyUuid: "%s", amount: %i, payerWallet: "%s") {
@@ -602,15 +619,22 @@ class TestQMoneyPaymentGraphQL(TestCase):
           }
         }
         ''' % (
-            uuid.uuid4(),
-            0,
+            policy_uuid,
+            amount,
             self._qmoney_payer,
         )
 
         actual = self.execute_gql_with_context(query)
         assert actual['data']['requestQmoneyPayment'] is None
-        assert actual['errors'][0][
-            'message'] == 'The UUID does not correspond to any existing policy.'
+
+        expected_error_message = 'The UUID does not correspond to any existing policy.'
+        assert actual['errors'][0]['message'] == expected_error_message
+
+        mutation_log = FakeMutationLog.objects.all().first()
+
+        assert mutation_log.client_mutation_label == f'Request QMoney Payment (wallet: {self._qmoney_payer}, amount: {amount}, policy: {policy_uuid})'
+        assert mutation_log.status == FakeMutationLog.ERROR
+        assert mutation_log.error == expected_error_message
 
     def test_failing_at_requesting_qmoney_payment_without_policy(self):
         query = '''
@@ -725,6 +749,13 @@ class TestQMoneyPaymentGraphQL(TestCase):
                 'premium_uuid': premium.uuid
             })
         assert actual == expected, f'should have been {expected}, but we got {actual}'
+
+        mutation_log = FakeMutationLog.objects.filter(
+            client_mutation_label__icontains='Proceed').first()
+
+        assert mutation_log.client_mutation_label == f'Proceed QMoney Payment ({uuid}, otp: {otp})'
+        assert mutation_log.status == FakeMutationLog.SUCCESS
+
         premium.delete()
 
     @unittest.skipIf('RUN_ALSO_TESTS_WITH_GMAIL' not in os.environ,

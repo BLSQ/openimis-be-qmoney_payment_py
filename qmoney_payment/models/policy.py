@@ -1,17 +1,19 @@
-from .utils import get_openimis_model
+from .utils import get_openimis_model, is_from_app, get_fully_qualified_name_of_model
+
+APP_NAME = 'policy'
+MODEL_NAME = 'Policy'
 
 
 def get_policy_model():
-    return get_openimis_model('policy', 'Policy')
+    return get_openimis_model(APP_NAME, MODEL_NAME)
 
 
 def is_from_policy_app():
-    return get_policy_model()._meta.app_label == 'policy'
+    return is_from_app(get_policy_model(), APP_NAME)
 
 
 def get_fully_qualified_name_of_policy_model():
-    model = get_policy_model()
-    return f'{model._meta.app_label}.{model._meta.model_name}'
+    return get_fully_qualified_name_of_model(get_policy_model())
 
 
 STATUS_NAME = {

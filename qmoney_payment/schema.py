@@ -1,4 +1,4 @@
-import graphene
+import uuid
 
 from django.apps import apps
 from django.contrib.auth.models import AnonymousUser
@@ -16,6 +16,7 @@ from core import ExtendedConnection
 from .apps import QMoneyPaymentConfig
 from .models.qmoney_payment import QMoneyPayment
 from .models.policy import get_policy_model
+from .models.mutation_log import get_mutation_log_model
 
 
 class QMoneyPaymentGQLType(DjangoObjectType):
@@ -99,18 +100,26 @@ class ProceedQMoneyPayment(graphene.Mutation):
         user = info.context.user
         raise_if_not_authenticated(user)
         raise_if_is_not_authorized_to(user, 'proceed')
+        json_of_parameters = {'uuid': uuid, 'otp': otp}
+        mutation_log = get_mutation_log_model().objects.create(
+            json_content=json_of_parameters,
+            user_id=user.id,
+            client_mutation_label=f'Proceed QMoney Payment ({uuid}, otp: {otp})'
+        )
         try:
             one_qmoney_payment = QMoneyPayment.objects.get(uuid=uuid)
         except QMoneyPayment.DoesNotExist:
-            return GraphQLError(
-                'The UUID does not correspond to any recorded QMoney payment.')
+            error_message = 'The UUID does not correspond to any recorded QMoney payment.'
+            mutation_log.mark_as_failed(error_message)
+            return GraphQLError(error_message)
 
         response = one_qmoney_payment.proceed(otp, user)
         if not response['ok']:
-            return GraphQLError(
-                f'Something went wrong. The payment could not be proceeded. The transaction is {response["status"]}. Reason: {response["message"]}'
-            )
+            error_message = f'Something went wrong. The payment could not be proceeded. The transaction is {response["status"]}. Reason: {response["message"]}'
+            mutation_log.mark_as_failed(error_message)
+            return GraphQLError(error_message)
         ok = True
+        mutation_log.mark_as_successful()
         return RequestQMoneyPayment(qmoney_payment=one_qmoney_payment, ok=ok)
 
 
@@ -128,20 +137,35 @@ class RequestQMoneyPayment(graphene.Mutation):
         user = info.context.user
         raise_if_not_authenticated(user)
         raise_if_is_not_authorized_to(user, 'request')
+
+        json_of_parameters = {
+            'amount': amount,
+            'payer_wallet': payer_wallet,
+            'policy_uuid': policy_uuid
+        }
+        mutation_log = get_mutation_log_model().objects.create(
+            json_content=json_of_parameters,
+            user_id=user.id,
+            client_mutation_label=
+            f'Request QMoney Payment (wallet: {payer_wallet}, amount: {amount}, policy: {policy_uuid})'
+        )
         try:
             # What if a transaction is ongoing?
             policy = get_policy_model().objects.get(uuid=policy_uuid)
         except get_policy_model().DoesNotExist:
-            return GraphQLError(
-                'The UUID does not correspond to any existing policy.')
+            error_message = 'The UUID does not correspond to any existing policy.'
+            mutation_log.mark_as_failed(error_message)
+            return GraphQLError(error_message)
 
         one_qmoney_payment = QMoneyPayment.objects.create(
             policy=policy, amount=amount, payer_wallet=payer_wallet)
         response = one_qmoney_payment.request()
         if not response['ok']:
-            return GraphQLError(
-                f'Something went wrong. The payment could not be requested. The transaction is {response["status"]}. Reason: {response["message"]}'
-            )
+            error_message = f'Something went wrong. The payment could not be requested. The transaction is {response["status"]}. Reason: {response["message"]}'
+            mutation_log.mark_as_failed(error_message)
+            return GraphQLError(error_message)
+
+        mutation_log.mark_as_successful()
         ok = True
         return RequestQMoneyPayment(qmoney_payment=one_qmoney_payment, ok=ok)
 

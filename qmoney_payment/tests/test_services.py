@@ -5,9 +5,10 @@ from qmoney_payment.models.qmoney_payment import QMoneyPayment
 from qmoney_payment.models.policy import get_policy_model, status_to_string
 from qmoney_payment.services import create_premium_for
 
-from . import policy_helpers
-from . import premium_helpers
 from .helpers import Struct
+from .fake_policy import FakePolicy
+from .fake_premium import FakePremium
+from .fakemodel_helpers import setup_table_for, teardown_table_for
 
 
 class TestServices(TestCase):
@@ -19,14 +20,14 @@ class TestServices(TestCase):
     @classmethod
     def setUpClass(cls):
         if cls.is_standalone_django_app_tests():
-            policy_helpers.setup_policy_table()
-            premium_helpers.setup_premium_table()
+            setup_table_for(FakePolicy)
+            setup_table_for(FakePremium)
 
     @classmethod
     def tearDownClass(cls):
         if cls.is_standalone_django_app_tests():
-            premium_helpers.teardown_premium_table()
-            policy_helpers.teardown_policy_table()
+            teardown_table_for(FakePremium)
+            teardown_table_for(FakePolicy)
 
     def get_one_policy_and_its_old_status(self):
         if self.is_standalone_django_app_tests():

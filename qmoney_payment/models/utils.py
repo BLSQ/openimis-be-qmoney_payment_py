@@ -2,6 +2,14 @@ from django.apps import apps
 from django.conf import settings
 
 
+def get_fully_qualified_name_of_model(model):
+    return f'{model._meta.app_label}.{model._meta.model_name}'
+
+
+def is_from_app(model, name):
+    return model._meta.app_label == name
+
+
 def import_class(from_module, name):
     import importlib
 
