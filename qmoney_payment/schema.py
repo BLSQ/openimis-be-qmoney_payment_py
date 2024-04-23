@@ -123,6 +123,41 @@ class ProceedQMoneyPayment(graphene.Mutation):
         return RequestQMoneyPayment(qmoney_payment=one_qmoney_payment, ok=ok)
 
 
+class CancelQMoneyPayment(graphene.Mutation):
+
+    class Arguments:
+        uuid = graphene.UUID()
+
+    ok = graphene.Boolean()
+    qmoney_payment = graphene.Field(lambda: QMoneyPaymentGQLType)
+
+    def mutate(root, info, uuid):
+        user = info.context.user
+        raise_if_not_authenticated(user)
+        raise_if_is_not_authorized_to(user, 'proceed')
+        json_of_parameters = {'uuid': uuid}
+        mutation_log = get_mutation_log_model().objects.create(
+            json_content=json_of_parameters,
+            user_id=user.id,
+            client_mutation_label=f'Cancel QMoney Payment ({uuid})')
+        try:
+            one_qmoney_payment = QMoneyPayment.objects.get(uuid=uuid)
+        except QMoneyPayment.DoesNotExist:
+            error_message = 'The UUID does not correspond to any recorded QMoney payment.'
+            mutation_log.mark_as_failed(error_message)
+            return GraphQLError(error_message)
+
+        response = one_qmoney_payment.cancel()
+        if not response['ok']:
+            error_message = f'Something went wrong. The payment could not be canceled. The transaction is {response["status"]}. Reason: {response["message"]}'
+            mutation_log.mark_as_failed(error_message)
+            return GraphQLError(error_message)
+
+        mutation_log.mark_as_successful()
+        ok = True
+        return CancelQMoneyPayment(qmoney_payment=one_qmoney_payment, ok=ok)
+
+
 class RequestQMoneyPayment(graphene.Mutation):
 
     class Arguments:
@@ -179,3 +214,4 @@ class RequestQMoneyPayment(graphene.Mutation):
 class Mutation(graphene.ObjectType):
     request_qmoney_payment = RequestQMoneyPayment.Field()
     proceed_qmoney_payment = ProceedQMoneyPayment.Field()
+    cancel_qmoney_payment = CancelQMoneyPayment.Field()
