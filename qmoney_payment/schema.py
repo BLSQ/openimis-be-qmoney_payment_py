@@ -157,9 +157,15 @@ class RequestQMoneyPayment(graphene.Mutation):
             mutation_log.mark_as_failed(error_message)
             return GraphQLError(error_message)
 
-        one_qmoney_payment = QMoneyPayment.objects.create(
-            policy=policy, amount=amount, payer_wallet=payer_wallet)
-        response = one_qmoney_payment.request()
+        try:
+            one_qmoney_payment = QMoneyPayment.objects.create(
+                policy=policy, amount=amount, payer_wallet=payer_wallet)
+            response = one_qmoney_payment.request()
+        except ValidationError as error:
+            error_message = error.message
+            mutation_log.mark_as_failed(error_message)
+            return GraphQLError(error_message)
+
         if not response['ok']:
             error_message = f'Something went wrong. The payment could not be requested. The transaction is {response["status"]}. Reason: {response["message"]}'
             mutation_log.mark_as_failed(error_message)

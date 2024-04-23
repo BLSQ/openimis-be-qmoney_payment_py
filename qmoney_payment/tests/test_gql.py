@@ -562,6 +562,67 @@ class TestQMoneyPaymentGraphQL(TestCase):
         assert mutation_log.client_mutation_label == f'Request QMoney Payment (wallet: {self._qmoney_payer}, amount: {amount}, policy: {self._one_policy.uuid})'
         assert mutation_log.status == FakeMutationLog.SUCCESS
 
+    def test_failing_at_requesting_a_2nd_qmoney_payment_for_an_existing_given_policy(
+            self):
+        amount = 10
+        query = '''
+        mutation {
+          requestQmoneyPayment(policyUuid: "%s", amount: %i, payerWallet: "%s") {
+            qmoneyPayment {
+              uuid
+              status
+              amount
+              payerWallet
+              policyUuid
+              premiumUuid
+              externalTransactionId
+            }
+            ok
+          }
+        }
+        ''' % (
+            self._one_policy.uuid,
+            amount,
+            self._qmoney_payer,
+        )
+
+        actual = self.execute_gql_with_context(query)
+        assert actual['data'][
+            'requestQmoneyPayment'], f'should have returned a `requestQmoneyPayment`, but got {actual}'
+        assert 'ok' in actual['data']['requestQmoneyPayment'] and actual[
+            'data']['requestQmoneyPayment'][
+                'ok'], f'should have returned ok, but got {actual}'
+        assert actual['data']['requestQmoneyPayment']['qmoneyPayment'][
+            'uuid'] is not None
+        expected = self.generate_expected_mutation_ok_response(
+            'requestQmoneyPayment', {
+                'uuid':
+                actual['data']['requestQmoneyPayment']['qmoneyPayment']
+                ['uuid'],
+                'policy_uuid':
+                f'{self._one_policy.uuid}',
+                'status':
+                'WAITING_FOR_CONFIRMATION',
+                'amount':
+                amount,
+                'payer_wallet':
+                self._qmoney_payer,
+                'transaction_id':
+                actual['data']['requestQmoneyPayment']['qmoneyPayment']
+                ['externalTransactionId']
+            })
+        assert actual == expected, f'should have been {expected}, but we got {actual}'
+
+        mutation_log = FakeMutationLog.objects.all().first()
+
+        assert mutation_log.client_mutation_label == f'Request QMoney Payment (wallet: {self._qmoney_payer}, amount: {amount}, policy: {self._one_policy.uuid})'
+        assert mutation_log.status == FakeMutationLog.SUCCESS
+
+        actual = self.execute_gql_with_context(query)
+        assert actual['data']['requestQmoneyPayment'] is None
+        assert actual['errors'][0][
+            'message'] == 'The number of ongoing unproceeded transactions have already reached the maximum allowed 1. Please proceed or cancel existing ones before requesting new payment.'
+
     def test_failing_at_requesting_qmoney_payment_for_an_existing_given_non_idle_policy(
             self):
         self._one_policy.status = get_policy_model().STATUS_ACTIVE

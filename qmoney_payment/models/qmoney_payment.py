@@ -1,8 +1,9 @@
 import uuid
 
 from django.apps import apps
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, ValidationError
 from django.db import models
+from django.db.models import Count, Q, F
 from django.db import transaction as django_db_transaction
 
 from qmoney_payment.apps import QMoneyPaymentConfig
@@ -11,10 +12,10 @@ from qmoney_payment.models.policy import get_policy_model
 from qmoney_payment.models.premium import get_premium_model
 from qmoney_payment.services import create_premium_for
 
-Struct = lambda **kwargs: type("Object", (), kwargs)
-
 
 class QMoneyPayment(models.Model):
+
+    MAX_SIMULTANEOUS_UNPROCEEDED_TRANSACTIONS = 1
 
     Status = models.TextChoices('Status',
                                 [(elem.name[0], elem.name)
@@ -151,6 +152,20 @@ class QMoneyPayment(models.Model):
                                               self.status,
                                               self.external_transaction_id)
         return self.transaction
+
+    def save(self, *args, **kwargs):
+        if self.policy is not None:
+            policy_from_db = get_policy_model().objects.filter(
+                id=self.policy.id).annotate(
+                    ongoing_unproceeded_transactions=Count(
+                        'qmoneypayment__policy__pk',
+                        filter=~Q(qmoneypayment__status__exact=self.Status.P))
+                ).first()
+            if policy_from_db is not None and policy_from_db.ongoing_unproceeded_transactions > self.MAX_SIMULTANEOUS_UNPROCEEDED_TRANSACTIONS:
+                raise ValidationError(
+                    f'The number of ongoing unproceeded transactions have already reached the maximum allowed {self.MAX_SIMULTANEOUS_UNPROCEEDED_TRANSACTIONS}. Please proceed or cancel existing ones before requesting new payment.'
+                )
+        return super().save(*args, **kwargs)
 
     class Meta:
         managed = True
