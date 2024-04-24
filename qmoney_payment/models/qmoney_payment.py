@@ -5,6 +5,7 @@ from django.core.validators import MinValueValidator, ValidationError
 from django.db import models
 from django.db.models import Count, Q, F
 from django.db import transaction as django_db_transaction
+from django.utils.translation import gettext as _
 
 from qmoney_payment.apps import QMoneyPaymentConfig
 from qmoney_payment.qmoney import PaymentTransaction
@@ -70,9 +71,12 @@ class QMoneyPayment(models.Model):
             # Should probably not happen as the object is always created by the
             # mutation before requesting
             return {
-                'ok': False,
-                'status': self.status,
-                'message': 'The payment has already been proceeded.'
+                'ok':
+                False,
+                'status':
+                self.status,
+                'message':
+                _('models.qmoney_payment.request.error.already_proceeded')
             }
         if self.payment_transaction().is_canceled():
             return {
@@ -81,7 +85,7 @@ class QMoneyPayment(models.Model):
                 'status':
                 self.status,
                 'message':
-                'The payment has been canceled, it cannot be requested anymore.'
+                _('models.qmoney_payment.request.error.already_canceled')
             }
         if self.policy.status is not get_policy_model().STATUS_IDLE:
             return {
@@ -90,7 +94,9 @@ class QMoneyPayment(models.Model):
                 'status':
                 self.status,
                 'message':
-                f'The Policy {self.policy_uuid} should be Idle but it is not.'
+                # Translators: This message will replace named-string policy_uuid
+                _('models.qmoney_payment.request.error.policy_not_idle'
+                  ).format(policy_uuid=self.policy_uuid)
             }
 
         # TODO manage the case the object has already been created, reuse ?
@@ -107,8 +113,7 @@ class QMoneyPayment(models.Model):
             return {
                 'ok': False,
                 'status': self.status,
-                'message': 'The request could not have been made.',
-                # Add more details
+                'message': _('models.qmoney_payment.request.error.failed')
             }
         return {'ok': True, 'status': self.status}
 
@@ -122,7 +127,7 @@ class QMoneyPayment(models.Model):
                 'status':
                 self.status,
                 'message':
-                f'The payment cannot be canceled as it has already been proceeded.',
+                _('models.qmoney_payment.cancel.error.already_proceeded')
             }
 
         self.status = QMoneyPayment.Status.C
@@ -141,16 +146,13 @@ class QMoneyPayment(models.Model):
                 'status':
                 self.status,
                 'message':
-                'The payment has not been requested. Please request it first before proceeding it.'
+                _('models.qmoney_payment.proceed.error.not_yet_requested')
             }
         if self.payment_transaction().is_canceled():
             return {
-                'ok':
-                False,
-                'status':
-                self.status,
-                'message':
-                'The payment has been canceled, it cannot be proceeded anymore.'
+                'ok': False,
+                'status': self.status,
+                'message': _('models.qmoney_payment.proceed.error.canceled')
             }
 
         # TODO manage the case the object has already been created, reuse ?
@@ -166,7 +168,9 @@ class QMoneyPayment(models.Model):
                 'status':
                 self.status,
                 'message':
-                f'The payment failed due to the following reason: {response[1]}',
+                # Translators: This message will replace named-string reason
+                _('models.qmoney_payment.proceed.error.failed').format(
+                    reason=response[1])
                 # Add more details
             }
         return {'ok': True, 'status': self.status}
@@ -198,8 +202,10 @@ class QMoneyPayment(models.Model):
                     | ~Q(qmoneypayment__status__exact=self.Status.C))).first()
             if policy_from_db is not None and policy_from_db.ongoing_unproceeded_transactions > self.MAX_SIMULTANEOUS_UNPROCEEDED_TRANSACTIONS:
                 raise ValidationError(
-                    f'The number of ongoing unproceeded transactions have already reached the maximum allowed {self.MAX_SIMULTANEOUS_UNPROCEEDED_TRANSACTIONS}. Please proceed or cancel existing ones before requesting new payment.'
-                )
+                    # Translators: This message will replace named-string max
+                    _('models.qmoney_payment.save.error.validation.maximum_transactions_reached'
+                      ).format(
+                          max=self.MAX_SIMULTANEOUS_UNPROCEEDED_TRANSACTIONS))
         self.transaction = None
         return super().save(*args, **kwargs)
 

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-04-17 03:16-0500\n"
+"POT-Creation-Date: 2024-04-24 03:42-0500\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,10 +18,104 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: qmoney_payment/schema.py:46
+#: qmoney_payment/models/qmoney_payment.py:79
+msgid "models.qmoney_payment.request.error.already_proceeded"
+msgstr "The payment has already been proceeded."
+
+#: qmoney_payment/models/qmoney_payment.py:88
+msgid "models.qmoney_payment.request.error.already_canceled"
+msgstr "The payment has been canceled, it cannot be requested anymore."
+
+#. Translators: This message will replace named-string policy_uuid
+#: qmoney_payment/models/qmoney_payment.py:98
+msgid "models.qmoney_payment.request.error.policy_not_idle"
+msgstr "The Policy {policy_uuid} should be Idle but it is not."
+
+#: qmoney_payment/models/qmoney_payment.py:116
+msgid "models.qmoney_payment.request.error.failed"
+msgstr "The request could not have been made."
+
+#: qmoney_payment/models/qmoney_payment.py:130
+msgid "models.qmoney_payment.cancel.error.already_proceeded"
+msgstr "The payment cannot be canceled as it has already been proceeded."
+
+#: qmoney_payment/models/qmoney_payment.py:149
+msgid "models.qmoney_payment.proceed.error.not_yet_requested"
+msgstr ""
+"The payment has not been requested. Please request it first before "
+"proceeding it."
+
+#: qmoney_payment/models/qmoney_payment.py:155
+msgid "models.qmoney_payment.proceed.error.canceled"
+msgstr "The payment has been canceled, it cannot be proceeded anymore."
+
+#. Translators: This message will replace named-string reason
+#: qmoney_payment/models/qmoney_payment.py:172
+msgid "models.qmoney_payment.proceed.error.failed"
+msgstr "The payment failed due to the following reason: {reason}"
+
+#. Translators: This message will replace named-string max
+#: qmoney_payment/models/qmoney_payment.py:206
+msgid ""
+"models.qmoney_payment.save.error.validation.maximum_transactions_reached"
+msgstr ""
+"The number of ongoing unproceeded transactions have already reached the "
+"maximum allowed {max}. Please proceed or cancel existing ones before "
+"requesting new payment."
+
+#: qmoney_payment/models/utils.py:30
+msgid "models.utils.get_openimis_model.error.model_fqn_empty"
+msgstr ""
+"A custom model for {name} has not been set up. Please provide one in "
+"settings."
+
+#: qmoney_payment/qmoney.py:110
+msgid "qmoney_payment.proceed.error.transaction_empty"
+msgstr ""
+"There isn't a transaction ID associated to this payment. Please request one "
+"before."
+
+#: qmoney_payment/qmoney.py:112
+msgid "qmoney_payment.proceed.error.otp_empty"
+msgstr "The provided OTP is empty."
+
+#: qmoney_payment/schema.py:47
 msgid "mutation.authentication_required"
 msgstr "User needs to be authenticated for this operation"
 
 #: qmoney_payment/schema.py:55 qmoney_payment/schema.py:57
 msgid "unauthorized"
 msgstr "User not authorized for this operation"
+
+#: qmoney_payment/schema.py:112 qmoney_payment/schema.py:149
+msgid "mutation.error.qmoney_payment.uuid_not_found"
+msgstr "The UUID does not correspond to any recorded QMoney payment."
+
+#. Translators: This message will replace named-string status and reason
+#: qmoney_payment/schema.py:120
+msgid "mutation.error.qmoney_payment.proceed_error"
+msgstr ""
+"Something went wrong. The payment could not be proceeded. The transaction is "
+"{status}. Reason: {reason}"
+
+#. Translators: This message will replace named-string status and reason
+#: qmoney_payment/schema.py:157
+msgid "mutation.error.qmoney_payment.cancel_error"
+msgstr ""
+"Something went wrong. The payment could not be canceled. The transaction is "
+"{status}. Reason: {reason}"
+
+#: qmoney_payment/schema.py:196
+msgid "mutation.error.policy.uuid_not_found"
+msgstr "The UUID does not correspond to any existing policy."
+
+#. Translators: This message will replace named-string status and reason
+#: qmoney_payment/schema.py:212
+msgid "mutation.error.qmoney_payment.request_error"
+msgstr ""
+"Something went wrong. The payment could not be requested. The transaction is "
+"{status}. Reason: {reason}"
+
+#: qmoney_payment/services.py:15
+msgid "service.create_premium_for.error"
+msgstr "The Qmoney Payment has not been proceeded"

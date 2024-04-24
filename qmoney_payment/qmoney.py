@@ -2,6 +2,8 @@ from enum import Enum
 import logging
 import requests
 
+from django.utils.translation import gettext as _
+
 logger = logging.getLogger(__name__)
 
 
@@ -105,12 +107,9 @@ class PaymentTransaction:
 
     def proceed(self, otp):
         if self.transaction_id is None:
-            return (
-                False,
-                'There isn\'t a transaction ID associated to this payment. Please request one before.'
-            )
+            return False, _('qmoney_payment.proceed.error.transaction_empty')
         if otp is None:
-            return False, 'The provided OTP is empty.'
+            return False, _('qmoney_payment.proceed.error.otp_empty')
         result = self.session.verify_code(self.transaction_id, otp)
         if result[0]:
             self.current_state = PaymentTransaction.State.PROCEEDED

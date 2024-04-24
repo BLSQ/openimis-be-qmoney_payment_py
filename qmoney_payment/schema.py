@@ -109,13 +109,16 @@ class ProceedQMoneyPayment(graphene.Mutation):
         try:
             one_qmoney_payment = QMoneyPayment.objects.get(uuid=uuid)
         except QMoneyPayment.DoesNotExist:
-            error_message = 'The UUID does not correspond to any recorded QMoney payment.'
+            error_message = _('mutation.error.qmoney_payment.uuid_not_found')
             mutation_log.mark_as_failed(error_message)
             return GraphQLError(error_message)
 
         response = one_qmoney_payment.proceed(otp, user)
         if not response['ok']:
-            error_message = f'Something went wrong. The payment could not be proceeded. The transaction is {response["status"]}. Reason: {response["message"]}'
+            error_message = _(
+                # Translators: This message will replace named-string status and reason
+                'mutation.error.qmoney_payment.proceed_error').format(
+                    status=response['status'], reason=response['message'])
             mutation_log.mark_as_failed(error_message)
             return GraphQLError(error_message)
         ok = True
@@ -143,13 +146,16 @@ class CancelQMoneyPayment(graphene.Mutation):
         try:
             one_qmoney_payment = QMoneyPayment.objects.get(uuid=uuid)
         except QMoneyPayment.DoesNotExist:
-            error_message = 'The UUID does not correspond to any recorded QMoney payment.'
+            error_message = _('mutation.error.qmoney_payment.uuid_not_found')
             mutation_log.mark_as_failed(error_message)
             return GraphQLError(error_message)
 
         response = one_qmoney_payment.cancel()
         if not response['ok']:
-            error_message = f'Something went wrong. The payment could not be canceled. The transaction is {response["status"]}. Reason: {response["message"]}'
+            error_message = _(
+                # Translators: This message will replace named-string status and reason
+                'mutation.error.qmoney_payment.cancel_error').format(
+                    status=response['status'], reason=response['message'])
             mutation_log.mark_as_failed(error_message)
             return GraphQLError(error_message)
 
@@ -185,10 +191,9 @@ class RequestQMoneyPayment(graphene.Mutation):
             f'Request QMoney Payment (wallet: {payer_wallet}, amount: {amount}, policy: {policy_uuid})'
         )
         try:
-            # What if a transaction is ongoing?
             policy = get_policy_model().objects.get(uuid=policy_uuid)
         except get_policy_model().DoesNotExist:
-            error_message = 'The UUID does not correspond to any existing policy.'
+            error_message = _('mutation.error.policy.uuid_not_found')
             mutation_log.mark_as_failed(error_message)
             return GraphQLError(error_message)
 
@@ -202,7 +207,10 @@ class RequestQMoneyPayment(graphene.Mutation):
             return GraphQLError(error_message)
 
         if not response['ok']:
-            error_message = f'Something went wrong. The payment could not be requested. The transaction is {response["status"]}. Reason: {response["message"]}'
+            error_message = _(
+                # Translators: This message will replace named-string status and reason
+                'mutation.error.qmoney_payment.request_error').format(
+                    status=response['status'], reason=response['message'])
             mutation_log.mark_as_failed(error_message)
             return GraphQLError(error_message)
 
