@@ -33,7 +33,7 @@ class PaymentTransaction:
     transaction_id = None
     State = Enum('State', [
         'INITIATED', 'WAITING_FOR_CONFIRMATION', 'PROCEEDED', 'UNKNOWN',
-        'FAILED'
+        'FAILED', 'CANCELED'
     ])
     current_state = State.UNKNOWN
 
@@ -56,7 +56,7 @@ class PaymentTransaction:
         return next(
             iter([
                 elem for elem in PaymentTransaction.State
-                if elem.name[0] == state_initial
+                if elem.name[0] == state_initial or elem.name == state_initial
             ]), PaymentTransaction.State.UNKNOWN)
 
     def is_initiated(self):
@@ -73,6 +73,9 @@ class PaymentTransaction:
 
     def is_in_unknown_state(self):
         return self.current_state == PaymentTransaction.State.UNKNOWN
+
+    def is_canceled(self):
+        return self.current_state == PaymentTransaction.State.CANCELED
 
     def state(self):
         return self.current_state
