@@ -17,6 +17,7 @@ from graphene.test import Client
 from simplegmail import Gmail
 
 from qmoney_payment.models.qmoney_payment import QMoneyPayment
+from qmoney_payment.models.mutation_log import get_mutation_log_model
 from qmoney_payment.models.policy import get_policy_model
 from qmoney_payment.models.premium import get_premium_model
 from qmoney_payment.schema import Query, Mutation
@@ -557,10 +558,10 @@ class TestQMoneyPaymentGraphQL(TestCase):
             })
         assert actual == expected, f'should have been {expected}, but we got {actual}'
 
-        mutation_log = FakeMutationLog.objects.all().first()
-
-        assert mutation_log.client_mutation_label == f'Request QMoney Payment (wallet: {self._qmoney_payer}, amount: {amount}, policy: {self._one_policy.uuid})'
-        assert mutation_log.status == FakeMutationLog.SUCCESS
+        mutation_log = get_mutation_log_model().objects.all().first()
+        expected_client_mutation_label = f'Request QMoney Payment (wallet: {self._qmoney_payer}, amount: {amount}, policy: {str(self._one_policy.uuid).lower()})'
+        assert mutation_log.client_mutation_label == expected_client_mutation_label, f'The client mutation label is incorrect,\nwe got: {mutation_log.client_mutation_label}\nrather than {expected_client_mutation_label}'
+        assert mutation_log.status == get_mutation_log_model().SUCCESS
 
     def test_canceling_an_existing_qmoney_payment(self):
         amount = 10
@@ -609,10 +610,10 @@ class TestQMoneyPaymentGraphQL(TestCase):
             })
         assert actual == expected, f'should have been {expected}, but we got {actual}'
 
-        mutation_log = FakeMutationLog.objects.all().first()
+        mutation_log = get_mutation_log_model().objects.all().first()
 
-        assert mutation_log.client_mutation_label == f'Cancel QMoney Payment ({one_qmoney_payment.uuid})'
-        assert mutation_log.status == FakeMutationLog.SUCCESS
+        assert mutation_log.client_mutation_label == f'Cancel QMoney Payment ({str(one_qmoney_payment.uuid).lower()})'
+        assert mutation_log.status == get_mutation_log_model().SUCCESS
 
     def test_failing_at_canceling_an_existing_proceeded_qmoney_payment(self):
         amount = 10
@@ -644,9 +645,9 @@ class TestQMoneyPaymentGraphQL(TestCase):
         expected_error_message = 'Something went wrong. The payment could not be canceled. The transaction is PROCEEDED. Reason: The payment cannot be canceled as it has already been proceeded.'
         assert actual['errors'][0]['message'] == expected_error_message
 
-        mutation_log = FakeMutationLog.objects.all().first()
-        assert mutation_log.client_mutation_label == f'Cancel QMoney Payment ({one_qmoney_payment.uuid})'
-        assert mutation_log.status == FakeMutationLog.ERROR
+        mutation_log = get_mutation_log_model().objects.all().first()
+        assert mutation_log.client_mutation_label == f'Cancel QMoney Payment ({str(one_qmoney_payment.uuid).lower()})'
+        assert mutation_log.status == get_mutation_log_model().ERROR
         assert mutation_log.error == expected_error_message
 
     def test_failing_at_canceling_an_non_existing_qmoney_payment(self):
@@ -679,9 +680,9 @@ class TestQMoneyPaymentGraphQL(TestCase):
         expected_error_message = 'The UUID does not correspond to any recorded QMoney payment.'
         assert actual['errors'][0]['message'] == expected_error_message
 
-        mutation_log = FakeMutationLog.objects.all().first()
+        mutation_log = get_mutation_log_model().objects.all().first()
         assert mutation_log.client_mutation_label == f'Cancel QMoney Payment ({false_uuid})'
-        assert mutation_log.status == FakeMutationLog.ERROR
+        assert mutation_log.status == get_mutation_log_model().ERROR
         assert mutation_log.error == expected_error_message
 
     def test_failing_at_requesting_a_2nd_qmoney_payment_for_an_existing_given_policy(
@@ -735,10 +736,10 @@ class TestQMoneyPaymentGraphQL(TestCase):
             })
         assert actual == expected, f'should have been {expected}, but we got {actual}'
 
-        mutation_log = FakeMutationLog.objects.all().first()
+        mutation_log = get_mutation_log_model().objects.all().first()
 
-        assert mutation_log.client_mutation_label == f'Request QMoney Payment (wallet: {self._qmoney_payer}, amount: {amount}, policy: {self._one_policy.uuid})'
-        assert mutation_log.status == FakeMutationLog.SUCCESS
+        assert mutation_log.client_mutation_label == f'Request QMoney Payment (wallet: {self._qmoney_payer}, amount: {amount}, policy: {str(self._one_policy.uuid).lower()})'
+        assert mutation_log.status == get_mutation_log_model().SUCCESS
 
         actual = self.execute_gql_with_context(query)
         assert actual['data']['requestQmoneyPayment'] is None
@@ -776,10 +777,10 @@ class TestQMoneyPaymentGraphQL(TestCase):
         expected_error_message = f'Something went wrong. The payment could not be requested. The transaction is INITIATED. Reason: The Policy {self._one_policy.uuid} should be Idle but it is not.'
         assert actual['errors'][0]['message'] == expected_error_message
 
-        mutation_log = FakeMutationLog.objects.all().first()
+        mutation_log = get_mutation_log_model().objects.all().first()
 
-        assert mutation_log.client_mutation_label == f'Request QMoney Payment (wallet: {self._qmoney_payer}, amount: {amount}, policy: {self._one_policy.uuid})'
-        assert mutation_log.status == FakeMutationLog.ERROR
+        assert mutation_log.client_mutation_label == f'Request QMoney Payment (wallet: {self._qmoney_payer}, amount: {amount}, policy: {str(self._one_policy.uuid).lower()})'
+        assert mutation_log.status == get_mutation_log_model().ERROR
         assert mutation_log.error == expected_error_message
 
     def test_failing_at_requesting_qmoney_payment_for_an_absent_given_policy(
@@ -813,10 +814,10 @@ class TestQMoneyPaymentGraphQL(TestCase):
         expected_error_message = 'The UUID does not correspond to any existing policy.'
         assert actual['errors'][0]['message'] == expected_error_message
 
-        mutation_log = FakeMutationLog.objects.all().first()
+        mutation_log = get_mutation_log_model().objects.all().first()
 
         assert mutation_log.client_mutation_label == f'Request QMoney Payment (wallet: {self._qmoney_payer}, amount: {amount}, policy: {policy_uuid})'
-        assert mutation_log.status == FakeMutationLog.ERROR
+        assert mutation_log.status == get_mutation_log_model().ERROR
         assert mutation_log.error == expected_error_message
 
     def test_failing_at_requesting_qmoney_payment_without_policy(self):
@@ -917,7 +918,8 @@ class TestQMoneyPaymentGraphQL(TestCase):
 
         actual = self.execute_gql_with_context(query)
         premium = get_premium_model().objects.filter(
-            policy__uuid=self._one_policy.uuid, receipt=uuid).first()
+            policy__uuid__iexact=str(self._one_policy.uuid).lower(),
+            receipt__iexact=uuid).first()
         assert premium != None
         self._one_policy.refresh_from_db()
         assert self._one_policy.status == get_policy_model().STATUS_ACTIVE
@@ -933,11 +935,11 @@ class TestQMoneyPaymentGraphQL(TestCase):
             })
         assert actual == expected, f'should have been {expected}, but we got {actual}'
 
-        mutation_log = FakeMutationLog.objects.filter(
+        mutation_log = get_mutation_log_model().objects.filter(
             client_mutation_label__icontains='Proceed').first()
 
         assert mutation_log.client_mutation_label == f'Proceed QMoney Payment ({uuid}, otp: {otp})'
-        assert mutation_log.status == FakeMutationLog.SUCCESS
+        assert mutation_log.status == get_mutation_log_model().SUCCESS
 
         premium.delete()
 

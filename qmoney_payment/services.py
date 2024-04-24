@@ -2,6 +2,7 @@ import datetime
 
 from django.db import transaction
 from django.utils.module_loading import import_string
+from django.utils.translation import gettext as _
 
 from qmoney_payment.models.premium import get_premium_model
 from qmoney_payment.models.premium import is_from_premium_app
@@ -11,7 +12,7 @@ from qmoney_payment.models.policy import get_policy_model
 @transaction.atomic
 def create_premium_for(qmoney_payment, user):
     if not qmoney_payment.is_proceeded():
-        return (False, 'The Qmoney Payment has not been proceeded')
+        return (False, _('service.create_premium_for.error'))
 
     now = datetime.date.today()
     data = {
