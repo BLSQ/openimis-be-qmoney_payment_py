@@ -12,9 +12,8 @@ def is_test_environment():
 
 
 def load_env():
-    global DOTENV
     if not DOTENV['loaded']:
-        from dotenv import load_dotenv
+        from dotenv import load_dotenv  # pylint: disable=import-outside-toplevel
         if is_test_environment():
             DOTENV['file'] = '.test.env'
             DOTENV['environment'] = 'test'

@@ -1,4 +1,3 @@
-from qmoney_payment.models.policy import get_policy_model
 from .utils import get_openimis_model, is_from_app, get_fully_qualified_name_of_model
 
 APP_NAME = 'contribution'

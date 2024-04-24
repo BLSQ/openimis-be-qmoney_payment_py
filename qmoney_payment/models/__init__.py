@@ -1,1 +1,1 @@
-from .qmoney_payment import QMoneyPayment
+from .qmoney_payment import QMoneyPayment  # noqa: F401

@@ -1,12 +1,9 @@
-import uuid
-
 from django.apps import apps
 from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ValidationError, PermissionDenied
 from django.utils.translation import gettext as _
 
 import graphene
-from graphene import relay
 from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
 from graphql import GraphQLError
@@ -31,19 +28,19 @@ class QMoneyPaymentGQLType(DjangoObjectType):
         filter_fields = []
         connection_class = ExtendedConnection
 
-    def resolve_policy_uuid(parent, info):
+    def resolve_policy_uuid(parent, _info):
         if parent is None:
             return None
         return parent.policy_uuid
 
-    def resolve_premium_uuid(parent, info):
+    def resolve_premium_uuid(parent, _info):
         if parent is None:
             return None
         return parent.premium_uuid
 
 
 def raise_if_not_authenticated(user):
-    if type(user) is AnonymousUser or not user.id:
+    if isinstance(user, AnonymousUser) or not user.id:
         raise ValidationError(_('mutation.authentication_required'))
 
 
@@ -53,8 +50,8 @@ def raise_if_is_not_authorized_to(user, gql_action):
                 apps.get_app_config(QMoneyPaymentConfig.name).
                 get_gql_permission_for(gql_action)):
             raise PermissionDenied(_('unauthorized'))
-    except AttributeError:
-        raise PermissionDenied(_('unauthorized'))
+    except AttributeError as error:
+        raise PermissionDenied(_('unauthorized')) from error
 
 
 class Query(graphene.ObjectType):

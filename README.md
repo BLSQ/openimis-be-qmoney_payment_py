@@ -12,7 +12,26 @@ pip install -r requirements.txt
 
 ## Usage
 
-TODO
+### Configuration
+
+The module has to be configured through environment variables:
+
+| name | description |
+| - | - | 
+| QMONEY_URL | The URL of the QMoney instance to use |
+| QMONEY_USERNAME | Username of the QMoney account to use when requesting its API |
+| QMONEY_PASSWORD | Password of the QMoney account to use when requesting its API |
+QMONEY_TOKEN=Basic token to be authorized to call public endpoints such as login |
+| QMONEY_PAYER | ID of the payer wallet |
+| QMONEY_PAYEE | ID of the payee (or merchant) wallet |
+| QMONEY_PAYEE_PIN_CODE | Pin code of the payee wallet |
+
+For the permissions, it follows the OpenIMIS ways, here the ones you can use:
+
+* `gql_qmoney_payment_get_permissions`
+* `gql_qmoney_payment_list_permissions`
+* `gql_qmoney_payment_request_permissions`
+* `gql_qmoney_payment_proceed_permissions`
 
 ## Test
 
@@ -80,6 +99,12 @@ As explained in the previous section, some tests rely on an existing GMail accou
 RUN_ALSO_TESTS_WITH_GMAIL=1 pytest
 ```
 
+#### Collect coverage
+
+```bash
+pytest --cov=qmoney_payment --cov-report html
+```
+
 ### Run tests with the full Django test harness
 
 ```bash
@@ -91,6 +116,13 @@ If you want also run the tests using Gmail, you do as it follows:
 ```bash
 RUN_ALSO_TESTS_WITH_GMAIL=1 ./manage.py test --keepdb qmoney_payment
 ```
+
+## Linting
+
+```bash
+prospector
+```
+
 ## Limitations
 
 The QMoney has some inherent known limitations:
@@ -106,7 +138,7 @@ The QMoney has some inherent known limitations:
 * It seems there isn't any throttle or limit of transactions that you can
   initiate (so far it has been tested with 500 wrong OTP).
 * It seems there isn't any expiration of the access token (so far it has been
-  tested with a 14 days old access token).
+  tested with a 80 days old access token).
 * There isn't any information regarding the expiration in the access token, that
   is a JWT token.
 
