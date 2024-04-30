@@ -1,4 +1,4 @@
-from .payment_transaction import PaymentTransaction
+from qmoney_payment.api.payment_transaction import PaymentTransaction
 
 
 class Merchant:
@@ -14,3 +14,6 @@ class Merchant:
                                                  amount)
         payment_transaction.request_otp()
         return payment_transaction
+
+    def proceed(self, payment_transaction, otp):
+        return payment_transaction.proceed(otp)

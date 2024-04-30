@@ -10,7 +10,7 @@ from .fake_premium import FakePremium
 from .fakemodel_helpers import setup_table_for, teardown_table_for
 
 
-class TestQMoneyPaymentGraphQL(TestCase):
+class TestQMoneyPaymentModel(TestCase):
     DEFAULT_POLICY_VALUE = 1
 
     @classmethod

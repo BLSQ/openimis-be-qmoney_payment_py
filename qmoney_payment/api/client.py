@@ -1,4 +1,4 @@
-from .session import Session
+from qmoney_payment.api.session import Session
 
 
 class Client:

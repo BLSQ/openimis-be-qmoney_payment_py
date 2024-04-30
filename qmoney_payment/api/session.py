@@ -1,8 +1,8 @@
 import logging
 import requests
 
-from .auth_base import QMoneyBasicAuth, QMoneyBearerAuth
-from .merchant import Merchant
+from qmoney_payment.api.auth_base import QMoneyBasicAuth, QMoneyBearerAuth
+from qmoney_payment.api.merchant import Merchant
 
 logger = logging.getLogger(__name__)
 

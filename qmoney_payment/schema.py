@@ -14,6 +14,7 @@ from .apps import QMoneyPaymentConfig
 from .models.qmoney_payment import QMoneyPayment
 from .models.policy import get_policy_model
 from .models.mutation_log import get_mutation_log_model
+from .services import cancel, proceed, request
 
 
 class QMoneyPaymentGQLType(DjangoObjectType):
@@ -110,7 +111,7 @@ class ProceedQMoneyPayment(graphene.Mutation):
             mutation_log.mark_as_failed(error_message)
             return GraphQLError(error_message)
 
-        response = one_qmoney_payment.proceed(otp, user)
+        response = proceed(one_qmoney_payment, otp, user)
         if not response['ok']:
             error_message = _(
                 # Translators: This message will replace named-string status and reason
@@ -147,7 +148,7 @@ class CancelQMoneyPayment(graphene.Mutation):
             mutation_log.mark_as_failed(error_message)
             return GraphQLError(error_message)
 
-        response = one_qmoney_payment.cancel()
+        response = cancel(one_qmoney_payment)
         if not response['ok']:
             error_message = _(
                 # Translators: This message will replace named-string status and reason
@@ -197,7 +198,7 @@ class RequestQMoneyPayment(graphene.Mutation):
         try:
             one_qmoney_payment = QMoneyPayment.objects.create(
                 policy=policy, amount=amount, payer_wallet=payer_wallet)
-            response = one_qmoney_payment.request()
+            response = request(one_qmoney_payment)
         except ValidationError as error:
             error_message = error.message
             mutation_log.mark_as_failed(error_message)
