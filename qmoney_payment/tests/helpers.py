@@ -10,7 +10,7 @@ from django.apps import apps
 
 from simplegmail.query import construct_query
 
-from qmoney_payment.qmoney import QMoneyBasicAuth, QMoneyBearerAuth
+from qmoney_payment.api.auth_base import QMoneyBasicAuth, QMoneyBearerAuth
 
 Struct = lambda **kwargs: type("Object", (), kwargs)
 

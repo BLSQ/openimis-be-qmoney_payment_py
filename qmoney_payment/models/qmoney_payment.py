@@ -9,7 +9,7 @@ from django.db import transaction as django_db_transaction
 from django.utils.translation import gettext as _
 
 from qmoney_payment.apps import QMoneyPaymentConfig
-from qmoney_payment.qmoney import PaymentTransaction
+from qmoney_payment.api.payment_transaction import PaymentTransaction
 from qmoney_payment.models.policy import get_policy_model
 from qmoney_payment.models.premium import get_premium_model
 from qmoney_payment.services import create_premium_for

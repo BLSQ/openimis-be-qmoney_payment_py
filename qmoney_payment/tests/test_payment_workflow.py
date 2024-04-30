@@ -5,7 +5,8 @@ from unittest import TestCase
 
 from simplegmail import Gmail
 
-from qmoney_payment.qmoney import QMoney, PaymentTransaction
+from qmoney_payment.api.payment_transaction import PaymentTransaction
+from qmoney_payment.api.client import Client as QMoneyClient
 from .helpers import gmail_wait_and_get_recent_emails_with_qmoney_otp, current_datetime, extract_otp_from_email_messages, gmail_mark_messages_as_read, gmail_mark_as_read_recent_emails_with_qmoney_otp
 from .qmoney_helpers import qmoney_url, qmoney_token, qmoney_credentials, qmoney_access_token, qmoney_getmoney_json_payload, qmoney_payee, qmoney_payer, qmoney_payee_pin_code
 
@@ -38,10 +39,11 @@ class TestPaymentWorkflow(TestCase):
     def test_succeeding_whole_payment_workflow_with_right_inputs(self):
         amount = 1
         before_initiating_transaction = current_datetime()
-        session = QMoney.session(TestPaymentWorkflow._qmoney_url,
-                                 TestPaymentWorkflow._qmoney_credentials[0],
-                                 TestPaymentWorkflow._qmoney_credentials[1],
-                                 TestPaymentWorkflow._qmoney_token)
+        session = QMoneyClient.session(
+            TestPaymentWorkflow._qmoney_url,
+            TestPaymentWorkflow._qmoney_credentials[0],
+            TestPaymentWorkflow._qmoney_credentials[1],
+            TestPaymentWorkflow._qmoney_token)
         merchant = session.merchant(TestPaymentWorkflow._qmoney_payee,
                                     TestPaymentWorkflow._qmoney_payee_pin_code)
         payment_transaction = merchant.request_payment(

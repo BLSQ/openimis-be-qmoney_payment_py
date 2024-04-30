@@ -2,7 +2,7 @@ import os
 
 from django.apps import AppConfig, apps
 
-from qmoney_payment.qmoney import QMoney
+from qmoney_payment.api.client import Client as QMoneyClient
 import qmoney_payment.env
 
 DEFAULT_CONFIG = {
@@ -61,10 +61,10 @@ class QMoneyPaymentConfig(AppConfig):
     def ready(self):
         self.__load_config()
         if self.session is None:
-            self.session = QMoney.session(self.settings['url'],
-                                          self.settings['username'],
-                                          self.settings['password'],
-                                          self.settings['token'])
+            self.session = QMoneyClient.session(self.settings['url'],
+                                                self.settings['username'],
+                                                self.settings['password'],
+                                                self.settings['token'])
         if self.merchant is None:
             self.merchant = self.session.merchant(
                 self.settings['merchant_wallet'],
