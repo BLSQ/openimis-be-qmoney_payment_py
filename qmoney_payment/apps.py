@@ -25,7 +25,7 @@ class QMoneyPaymentConfig(AppConfig):
 
     def __init__(self, app_name, app_module):
         qmoney_payment.env.load_env()
-        super(QMoneyPaymentConfig, self).__init__(app_name, app_module)
+        super().__init__(app_name, app_module)
         self.settings = {
             'url': os.getenv('QMONEY_URL'),
             'username': os.getenv('QMONEY_USERNAME'),
@@ -55,7 +55,7 @@ class QMoneyPaymentConfig(AppConfig):
                                                         require_ready=False)
             return module_configuration_model.get_or_default(
                 cls.name, DEFAULT_CONFIG)
-        except LookupError as _:
+        except LookupError:
             return DEFAULT_CONFIG
 
     def ready(self):

@@ -6,6 +6,8 @@ from django.utils.translation import gettext as _
 
 logger = logging.getLogger(__name__)
 
+TIMEOUT = 100
+
 
 class QMoneyBasicAuth(requests.auth.AuthBase):
 
@@ -39,13 +41,14 @@ class PaymentTransaction:
     ])
     current_state = State.UNKNOWN
 
-    def __init__(self,
-                 with_session,
-                 to_merchant,
-                 from_wallet_id,
-                 amount,
-                 state_initial='I',
-                 assigned_transaction_id=None):
+    def __init__(  # pylint: disable=too-many-arguments
+            self,
+            with_session,
+            to_merchant,
+            from_wallet_id,
+            amount,
+            state_initial='I',
+            assigned_transaction_id=None):
         self.to_merchant = to_merchant
         self.from_wallet_id = from_wallet_id
         self.amount_to_pay = amount
@@ -58,7 +61,7 @@ class PaymentTransaction:
         return next(
             iter([
                 elem for elem in PaymentTransaction.State
-                if elem.name[0] == state_initial or elem.name == state_initial
+                if state_initial in (elem.name[0], elem.name)
             ]), PaymentTransaction.State.UNKNOWN)
 
     def is_initiated(self):
@@ -159,7 +162,8 @@ class Session:
         }
         response = requests.post(url=f'{self.url}/login',
                                  json=json_payload,
-                                 auth=QMoneyBasicAuth(self.login_token))
+                                 auth=QMoneyBasicAuth(self.login_token),
+                                 timeout=TIMEOUT)
 
         self.access_token = response.json()['data']['access_token']
 
@@ -197,7 +201,8 @@ class Session:
 
         response = requests.post(url=f'{self.url}/getMoney',
                                  json=payload,
-                                 auth=QMoneyBearerAuth(self.access_token))
+                                 auth=QMoneyBearerAuth(self.access_token),
+                                 timeout=TIMEOUT)
 
         logger.debug('POST /getMoney response:\n%s', response.text)
 
@@ -213,7 +218,8 @@ class Session:
         logger.debug('POST /verifyCode with payload:\n%s', payload)
         response = requests.post(url=f'{self.url}/verifyCode',
                                  json=payload,
-                                 auth=QMoneyBearerAuth(self.access_token))
+                                 auth=QMoneyBearerAuth(self.access_token),
+                                 timeout=TIMEOUT)
         logger.debug('POST /verifyCode response:\n%s', response.text)
 
         if response.status_code != 200 or response.json(

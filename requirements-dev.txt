@@ -1,3 +1,5 @@
+prospector
 pytest
+pytest-cov
 pytest-django
 simplegmail

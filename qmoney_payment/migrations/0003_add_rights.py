@@ -7,15 +7,15 @@ from core.utils import remove_role_right_for_system, insert_role_right_for_syste
 from qmoney_payment.apps import DEFAULT_CONFIG
 
 ROLE_ID = 64
-RIGHTS = [code for name in DEFAULT_CONFIG for code in DEFAULT_CONFIG[name]]
+RIGHTS = [code for code, name in DEFAULT_CONFIG.items()]
 
 
-def add_query_rights(apps, schema_editor):
+def add_query_rights(_apps, _schema_editor):
     for right in RIGHTS:
         insert_role_right_for_system(ROLE_ID, right)
 
 
-def remove_query_rights(apps, schema_editor):
+def remove_query_rights(_apps, _schema_editor):
     for right in RIGHTS:
         remove_role_right_for_system(ROLE_ID, right)
 

@@ -3,7 +3,7 @@ import uuid
 from django.apps import apps
 from django.core.validators import MinValueValidator, ValidationError
 from django.db import models
-from django.db.models import Count, Q, F
+from django.db.models import Count, Q
 from django.db import transaction as django_db_transaction
 from django.utils.translation import gettext as _
 
