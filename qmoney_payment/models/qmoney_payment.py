@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from django.apps import apps
@@ -12,6 +13,8 @@ from qmoney_payment.qmoney import PaymentTransaction
 from qmoney_payment.models.policy import get_policy_model
 from qmoney_payment.models.premium import get_premium_model
 from qmoney_payment.services import create_premium_for
+
+logger = logging.getLogger(__name__)
 
 
 class QMoneyPayment(models.Model):
@@ -193,14 +196,17 @@ class QMoneyPayment(models.Model):
         return self.transaction
 
     def save(self, *args, **kwargs):
-        if self.policy is not None:
+        if self.policy is not None and self.status != QMoneyPayment.Status.C:
             policy_from_db = get_policy_model(
             ).objects.filter(id=self.policy.id).annotate(
                 ongoing_unproceeded_transactions=Count(
                     'qmoneypayment__policy__pk',
                     filter=~Q(qmoneypayment__status__exact=self.Status.P)
-                    | ~Q(qmoneypayment__status__exact=self.Status.C))).first()
-            if policy_from_db is not None and policy_from_db.ongoing_unproceeded_transactions > self.MAX_SIMULTANEOUS_UNPROCEEDED_TRANSACTIONS:
+                    & ~Q(qmoneypayment__status__exact=self.Status.C))).first()
+            max = self.MAX_SIMULTANEOUS_UNPROCEEDED_TRANSACTIONS
+            if not self._state.adding:
+                max += 1
+            if policy_from_db is not None and policy_from_db.ongoing_unproceeded_transactions >= max:
                 raise ValidationError(
                     # Translators: This message will replace named-string max
                     _('models.qmoney_payment.save.error.validation.maximum_transactions_reached'
