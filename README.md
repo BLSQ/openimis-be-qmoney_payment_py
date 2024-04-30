@@ -99,6 +99,13 @@ As explained in the previous section, some tests rely on an existing GMail accou
 RUN_ALSO_TESTS_WITH_GMAIL=1 pytest
 ```
 
+If you'd like to automate the run of your test when changes are saved, you can
+use `pytest-watch`:
+
+```bash
+ptw
+```
+
 #### Collect coverage
 
 ```bash
