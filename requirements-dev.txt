@@ -2,4 +2,6 @@ prospector
 pytest
 pytest-cov
 pytest-django
+pytest-notifier
+pytest-watch
 simplegmail
