@@ -195,6 +195,12 @@ class RequestQMoneyPayment(graphene.Mutation):
             mutation_log.mark_as_failed(error_message)
             return GraphQLError(error_message)
 
+        potential_qmoney_payment = QMoneyPayment.objects.filter(payer_wallet=payer_wallet, policy=policy, status=QMoneyPayment.Status.W)
+        if potential_qmoney_payment.exists():
+            error_message = _('mutation.error.qmoney_payment.request.error.already_requested')
+            mutation_log.mark_as_failed(error_message)
+            return GraphQLError(error_message)
+
         try:
             one_qmoney_payment = QMoneyPayment.objects.create(
                 policy=policy, amount=amount, payer_wallet=payer_wallet)
