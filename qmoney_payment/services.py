@@ -1,4 +1,5 @@
 import datetime
+import logging
 
 from django.apps import apps
 from django.db import transaction
@@ -8,6 +9,9 @@ from django.utils.translation import gettext as _
 from qmoney_payment.apps import QMoneyPaymentConfig
 from qmoney_payment.models.premium import get_premium_model, is_from_premium_app
 from qmoney_payment.models.policy import get_policy_model
+
+
+logger = logging.getLogger(__name__)
 
 
 @transaction.atomic
@@ -31,12 +35,15 @@ def proceed(qmoney_payment, otp, user):
 
     # TODO manage the case the object has already been created, reuse ?
     merchant = apps.get_app_config(QMoneyPaymentConfig.name).merchant
+    logger.debug(f"Qmoney payment {qmoney_payment.uuid} proceed with otp {otp}")
 
     ok, reason = merchant.proceed(qmoney_payment.payment_transaction(), otp)
     if ok:
+        logger.debug(f"Qmoney payment {qmoney_payment.uuid} proceed was successful!")
         qmoney_payment.set_status_after_proceed()
         create_premium_for(qmoney_payment, user)
     else:
+        logger.debug(f"Qmoney payment {qmoney_payment.uuid} proceed failed!")
         return {
             'ok':
             False,
@@ -83,6 +90,7 @@ def request(qmoney_payment):
             _('models.qmoney_payment.request.error.policy_not_idle').format(
                 policy_uuid=qmoney_payment.policy_uuid)
         }
+    logger.debug(f"Qmoney payment - new request")
 
     # TODO manage the case the object has already been created, reuse ?
     config = apps.get_app_config(QMoneyPaymentConfig.name)
@@ -94,11 +102,13 @@ def request(qmoney_payment):
     if not qmoney_payment.set_status_after_request(transaction):
         # TODO to manage, buuuuut except network error, it should be always ok due to the API :/
         # maybe with the get transaction state of their API ?
+        logger.debug(f"Qmoney payment - new request failed")
         return {
             'ok': False,
             'status': qmoney_payment.status,
             'message': _('models.qmoney_payment.request.error.failed')
         }
+    logger.debug(f"Qmoney payment - new request successful!")
     return {'ok': True, 'status': qmoney_payment.status}
 
 
@@ -113,7 +123,9 @@ def cancel(qmoney_payment):
             _('models.qmoney_payment.cancel.error.already_proceeded')
         }
 
+    logger.debug(f"Qmoney payment - cancel payment {qmoney_payment.uuid}")
     qmoney_payment.set_status_after_cancel()
+    logger.debug(f"Qmoney payment - cancel payment {qmoney_payment.uuid} successful!")
     return {'ok': True, 'status': qmoney_payment.status}
 
 
